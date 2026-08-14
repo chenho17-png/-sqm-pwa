@@ -8,10 +8,10 @@
 window.HII_CONFIG = {
 
   /* ① GAS Web App 部署網址（部署 → 管理部署作業 → 複製網址，結尾是 /exec） */
-  API_URL: 'https://script.google.com/macros/s/AKfycbzaobMBEjlnxdIBe3vF1ILKhlrFw6Pwh3hzehcIuOx6y3oBcj__scQ4GlQgJ51NmoKgBw/exec',
+ API_URL: 'https://script.google.com/macros/s/AKfycbzksYbgcPf6HLGIxVfVPDkzyvIvv-Omcn8NpFO7Vm27QdAg8LbFsKK-hTcFl6v6eq5_hg/exec',
 
   /* ② Google Cloud Console 建立的 OAuth 2.0 用戶端 ID */
-  CLIENT_ID: '513633868498-b5g3dhgkh14kcuqtiv31jqjdqkl3rien.apps.googleusercontent.com',
+ CLIENT_ID: '513633868498-b5g3dhgkh14kcuqtiv31jqjdqkl3rien.apps.googleusercontent.com',
 
   /* ③ 限定登入網域。GIS 會用它做登入提示，後端會再驗一次（真正的關卡在後端） */
   HOSTED_DOMAIN: 'hii.archi',
