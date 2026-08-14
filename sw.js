@@ -12,7 +12,7 @@
  *            並由前端跳出「有新版本，點擊更新」提示。
  * ==========================================================================*/
 
-const CACHE_VERSION = 'hii-sqm-v1.1.0';
+const CACHE_VERSION = 'hii-sqm-v1.4.0';
 const FONT_CACHE = 'hii-fonts-v1';
 const SHELL = [
   './',
