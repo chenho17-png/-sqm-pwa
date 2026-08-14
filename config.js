@@ -11,7 +11,7 @@ window.HII_CONFIG = {
    *    來源：Apps Script → 部署 → 管理部署作業 → 複製網址
    *    長相：https://script.google.com/macros/s/AKfycb…………/exec
    *    ⚠ 結尾必須是 /exec（/dev 是只有你本人能用的測試網址）           */
-  API_URL: '',
+  API_URL: 'https://script.google.com/macros/s/AKfycbzksYbgcPf6HLGIxVfVPDkzyvIvv-Omcn8NpFO7Vm27QdAg8LbFsKK-hTcFl6v6eq5_hg/exec',
 
   /* ② OAuth 2.0 用戶端 ID
    *    來源：Cloud Console → Google Auth Platform → 用戶端
@@ -24,7 +24,7 @@ window.HII_CONFIG = {
    *      兩者都是一長串亂碼，但用途完全不同，貼錯 Google 只會回
    *      「The OAuth client was not found」，看不出是貼錯欄位。
    *      前端已內建檢查，貼錯會在登入頁直接告訴你。                     */
-  CLIENT_ID: '',
+  CLIENT_ID: '513633868498-b5g3dhgkh14kcuqtiv31jqjdqkl3rien.apps.googleusercontent.com',
 
   /* ③ 限定登入網域。GIS 會用它做登入提示，後端會再驗一次（真正的關卡在後端） */
   HOSTED_DOMAIN: 'hii.archi',
