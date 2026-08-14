@@ -11,14 +11,14 @@ window.HII_CONFIG = {
   API_URL: 'https://script.google.com/macros/s/AKfycbzaobMBEjlnxdIBe3vF1ILKhlrFw6Pwh3hzehcIuOx6y3oBcj__scQ4GlQgJ51NmoKgBw/exec',
 
   /* ② Google Cloud Console 建立的 OAuth 2.0 用戶端 ID */
-  CLIENT_ID: 'AKfycbzaobMBEjlnxdIBe3vF1ILKhlrFw6Pwh3hzehcIuOx6y3oBcj__scQ4GlQgJ51NmoKgBw.apps.googleusercontent.com',
+  CLIENT_ID: '513633868498-b5g3dhgkh14kcuqtiv31jqjdqkl3rien.apps.googleusercontent.com',
 
   /* ③ 限定登入網域。GIS 會用它做登入提示，後端會再驗一次（真正的關卡在後端） */
   HOSTED_DOMAIN: 'hii.archi',
 
   /* ④ 顯示用 */
   APP_NAME: '監造品質管理',
-  ORG_NAME: 'HII 建築師事務所',
+  ORG_NAME: 'HII',
 
   /* ⑤ 影像壓縮設定
    *    工地照片以「看得清楚缺失」為準，不需要原尺寸。
