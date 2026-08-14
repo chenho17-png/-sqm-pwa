@@ -31,7 +31,7 @@ window.HII_CONFIG = {
 
   /* ④ 顯示用 */
   APP_NAME: '監造品質管理',
-  ORG_NAME: 'HII 建築師事務所',
+  ORG_NAME: 'HII',
 
   /* ⑤ 影像壓縮設定
    *    工地照片以「看得清楚缺失」為準，不需要原尺寸。
