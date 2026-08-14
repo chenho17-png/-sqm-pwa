@@ -1,0 +1,2641 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="description" content="監造品質管理系統 — 查驗照片、缺失改善、材料與施工抽查">
+<title>HII 監造品質管理</title>
+
+<!-- 字體：Noto Sans TC（＝Noto Sans CJK TC 的 Google Fonts 版本）
+     Google Fonts 會把 CJK 切成上百個 unicode-range 子集，只下載實際用到的片段，
+     首次載入約幾十 KB 而非數 MB。sw.js 會把字型檔快取起來，之後離線一樣是這個字體。
+     若完全載不到，會退回系統內建的 Noto Sans CJK / PingFang TC，字形極接近。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="監造品管">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+
+<style>
+/* ===================================================================
+   設計語彙：工地強光下可讀 → 高對比、大字、最小 48px 觸控區
+   =================================================================== */
+:root{
+  --navy:#1e3a5f; --navy-2:#2b5183; --navy-3:#e8eef6;
+  --ink:#0f172a; --ink-2:#475569; --ink-3:#94a3b8;
+  --line:#e2e8f0; --bg:#f1f5f9; --card:#fff;
+  --red:#dc2626; --red-bg:#fef2f2;
+  --amber:#d97706; --amber-bg:#fffbeb;
+  --green:#15803d; --green-bg:#f0fdf4;
+  --blue:#0369a1; --blue-bg:#f0f9ff;
+  --r:14px; --sh:0 1px 3px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.04);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overscroll-behavior-y:none}
+body{
+  font-family:"Noto Sans TC","Noto Sans CJK TC","Noto Sans CJK",
+    -apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif;
+  font-feature-settings:"palt" 1;          /* CJK 標點壓縮，排版較緊實 */
+  background:var(--bg);color:var(--ink);display:flex;flex-direction:column;
+  height:100vh;height:100dvh;overflow:hidden
+}
+/* ---------- 品牌標誌 ---------- */
+.logo{display:block;height:26px;width:auto;flex:none}
+.logo-lg{display:block;height:64px;width:auto;margin:0 auto}
+.wordmark{font-weight:900;letter-spacing:.14em}
+#app{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;position:relative}
+
+/* ---------- App Bar ---------- */
+.appbar{background:var(--navy);color:#fff;padding:12px 14px;display:flex;align-items:center;
+  gap:10px;position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(0,0,0,.15);
+  padding-top:calc(12px + env(safe-area-inset-top,0px))}
+.appbar h1{font-size:17px;margin:0;font-weight:700;flex:1;line-height:1.3;min-width:0}
+.appbar h1 span.sub{font-size:11px;opacity:.75;font-weight:400;display:block;margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{width:38px;height:38px;border-radius:10px;border:0;background:rgba(255,255,255,.14);
+  color:#fff;font-size:19px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.iconbtn:active{background:rgba(255,255,255,.32)}
+.offbar{background:var(--amber);color:#fff;font-size:12px;font-weight:700;padding:7px 14px;
+  display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:19}
+.stalebar{background:var(--blue-bg);color:var(--blue);font-size:11.5px;font-weight:700;
+  padding:6px 14px;border-bottom:1px solid #bae6fd}
+
+/* ---------- 版面 ---------- */
+.body{padding:14px 14px calc(100px + var(--safe-b))}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:12px;overflow:hidden}
+.card-pad{padding:14px}
+.row{display:flex;align-items:center;gap:12px}
+.grow{flex:1;min-width:0}
+.tt{font-size:15px;font-weight:700;line-height:1.35}
+.st{font-size:12.5px;color:var(--ink-2);line-height:1.55}
+.xs{font-size:11.5px;color:var(--ink-3);line-height:1.5}
+.sect{font-size:12px;font-weight:800;color:var(--ink-2);letter-spacing:.08em;
+  margin:20px 2px 8px;display:flex;align-items:center;gap:8px}
+.sect::after{content:"";flex:1;height:1px;background:var(--line)}
+.empty{text-align:center;padding:54px 20px;color:var(--ink-3)}
+.empty .ic{font-size:44px}
+
+/* ---------- 按鈕 ---------- */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;
+  border:0;border-radius:12px;background:var(--navy);color:#fff;font-size:16px;font-weight:700;
+  cursor:pointer;font-family:inherit;margin-bottom:0}
+.btn:active{background:var(--navy-2)}
+.btn:disabled{opacity:.5}
+.btn.ghost{background:#fff;color:var(--navy);border:1.5px solid var(--line)}
+.btn.danger{background:var(--red)}
+.btn.green{background:var(--green)}
+.btn.sm{min-height:42px;font-size:14px;width:auto;padding:0 16px}
+.btn+.btn{margin-top:9px}
+.fab{position:fixed;right:16px;bottom:calc(88px + var(--safe-b));width:60px;height:60px;
+  border-radius:50%;background:var(--navy);color:#fff;font-size:30px;border:0;
+  box-shadow:0 6px 20px rgba(30,58,95,.45);cursor:pointer;z-index:30;
+  display:flex;align-items:center;justify-content:center}
+
+/* ---------- 標籤 ---------- */
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;
+  padding:3px 9px;border-radius:999px;white-space:nowrap}
+.t-red{background:var(--red-bg);color:var(--red)}
+.t-amber{background:var(--amber-bg);color:var(--amber)}
+.t-green{background:var(--green-bg);color:var(--green)}
+.t-blue{background:var(--blue-bg);color:var(--blue)}
+.t-gray{background:#f1f5f9;color:var(--ink-2)}
+
+/* ---------- 表單 ---------- */
+label.f{display:block;font-size:12.5px;font-weight:700;color:var(--ink-2);margin:14px 0 6px}
+label.f .req{color:var(--red);margin-left:3px}
+input.i,select.i,textarea.i{width:100%;border:1.5px solid var(--line);border-radius:11px;
+  padding:13px 12px;font-size:16px;font-family:inherit;background:#fff;color:var(--ink)}
+textarea.i{min-height:82px;resize:vertical;line-height:1.55}
+input.i:focus,select.i:focus,textarea.i:focus{outline:0;border-color:var(--navy);box-shadow:0 0 0 3px var(--navy-3)}
+input.i:disabled,input.i[readonly]{background:#f8fafc;color:var(--ink-2)}
+.auto{background:var(--blue-bg)!important;border-color:#bae6fd!important}
+.hint{font-size:11.5px;color:var(--blue);margin-top:5px;line-height:1.5}
+.err{font-size:11.5px;color:var(--red);margin-top:5px;font-weight:700}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;min-height:46px;border:1.5px solid var(--line);background:#fff;border-radius:11px;
+  font-size:14px;font-weight:700;color:var(--ink-2);cursor:pointer;font-family:inherit;padding:0 4px}
+.seg button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.seg button.on.ok{background:var(--green);border-color:var(--green)}
+.seg button.on.ng{background:var(--red);border-color:var(--red)}
+.seg button.on.na{background:#64748b;border-color:#64748b}
+input[type=checkbox]{width:23px;height:23px;accent-color:var(--navy)}
+
+/* ---------- 底部導覽 ---------- */
+.tabbar{height:calc(72px + var(--safe-b));background:#fff;border-top:1px solid var(--line);
+  display:flex;flex:none;padding-bottom:var(--safe-b);z-index:25}
+.tabbar button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;font-size:10.5px;color:var(--ink-3);cursor:pointer;
+  font-family:inherit;font-weight:700;position:relative}
+.tabbar button.on{color:var(--navy)}
+.tabbar .ic{font-size:21px;line-height:1}
+.dot{position:absolute;top:9px;right:50%;margin-right:-22px;min-width:19px;height:19px;
+  background:var(--red);color:#fff;border-radius:999px;font-size:11px;display:flex;
+  align-items:center;justify-content:center;padding:0 5px;font-weight:800}
+
+/* ---------- 照片 ---------- */
+.thumb{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#e2e8f0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.addph{aspect-ratio:4/3;border:2px dashed #cbd5e1;border-radius:11px;background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  color:var(--ink-2);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;width:100%}
+.addph .ic{font-size:26px}
+.phwrap{position:relative}
+.phwrap .del{position:absolute;top:5px;right:5px;width:28px;height:28px;border-radius:50%;
+  background:rgba(15,23,42,.72);color:#fff;border:0;font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+
+/* ---------- 清單 ---------- */
+.li{display:flex;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line);
+  cursor:pointer;background:#fff;align-items:flex-start;text-align:left;width:100%;border-left:0;
+  border-right:0;border-top:0;font-family:inherit;color:inherit}
+.li:last-child{border-bottom:0}
+.li:active{background:#f8fafc}
+.li img{width:66px;height:66px;border-radius:9px;object-fit:cover;flex:none;background:#e2e8f0}
+.chev{color:var(--ink-3);font-size:19px;align-self:center;flex:none}
+.filters{display:flex;gap:7px;overflow-x:auto;padding:11px 14px;background:#fff;
+  border-bottom:1px solid var(--line);scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;
+  font-size:13px;font-weight:700;color:var(--ink-2);white-space:nowrap;cursor:pointer;font-family:inherit}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+
+/* ---------- 統計 ---------- */
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi .k{background:#fff;border-radius:var(--r);padding:13px;box-shadow:var(--sh);
+  border:0;text-align:left;font-family:inherit;cursor:pointer;width:100%}
+.kpi .n{font-size:29px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:11.5px;color:var(--ink-2);font-weight:700;margin-top:3px}
+.mods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mod{background:#fff;border-radius:var(--r);padding:15px 13px;box-shadow:var(--sh);border:0;
+  text-align:left;cursor:pointer;font-family:inherit;width:100%}
+.mod .ic{font-size:25px;display:block;margin-bottom:7px}
+.mod .n{font-size:14.5px;font-weight:800;display:block}
+.mod .d{font-size:11.5px;color:var(--ink-3);margin-top:3px;display:block;line-height:1.4}
+
+/* ---------- 時間軸 ---------- */
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tl .ev{position:relative;padding-bottom:15px}
+.tl .ev::before{content:"";position:absolute;left:-20px;top:4px;width:11px;height:11px;
+  border-radius:50%;background:#fff;border:2.5px solid var(--ink-3)}
+.tl .ev.done::before{border-color:var(--green);background:var(--green)}
+.tl .ev.now::before{border-color:var(--amber);background:var(--amber)}
+
+/* ---------- 骨架 / 載入 ---------- */
+.sk{background:linear-gradient(90deg,#e9eef4 25%,#f4f7fa 50%,#e9eef4 75%);
+  background-size:200% 100%;animation:sk 1.3s infinite;border-radius:9px}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.spin{width:22px;height:22px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;
+  border-radius:50%;animation:sp .8s linear infinite;display:inline-block}
+.spin.dark{border-color:rgba(30,58,95,.25);border-top-color:var(--navy)}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ---------- 浮動提示 / 遮罩 ---------- */
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(120px + var(--safe-b));
+  background:rgba(15,23,42,.94);color:#fff;padding:13px 20px;border-radius:11px;font-size:14px;
+  font-weight:700;z-index:1000;max-width:86%;text-align:center;line-height:1.5;
+  box-shadow:0 8px 24px rgba(0,0,0,.3);display:none}
+#busy{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:900;display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;color:#fff;
+  font-size:14px;font-weight:700;backdrop-filter:blur(2px)}
+#update{position:fixed;left:12px;right:12px;bottom:calc(84px + var(--safe-b));background:var(--navy);
+  color:#fff;border-radius:12px;padding:13px 15px;z-index:800;display:none;
+  align-items:center;gap:12px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.sig{border:1.5px dashed #cbd5e1;border-radius:11px;background:#fff;touch-action:none;width:100%;
+  height:150px;display:block}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+<div id="tabs"></div>
+<div id="toast"></div>
+<div id="busy"><span class="spin"></span><span id="busytx">處理中…</span></div>
+<div id="update">
+  <span style="font-size:20px">🔄</span>
+  <div class="grow"><div style="font-weight:800;font-size:14px">有新版本</div>
+  <div style="font-size:11.5px;opacity:.8">點擊立即更新</div></div>
+  <button class="btn sm ghost" onclick="applyUpdate()">更新</button>
+</div>
+
+<!-- 隱藏的檔案輸入：相機 / 相簿 / 文件 -->
+<input type="file" id="fCam" accept="image/*" capture="environment" style="display:none" multiple>
+<input type="file" id="fLib" accept="image/*" style="display:none" multiple>
+<input type="file" id="fDoc" style="display:none"
+       accept=".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf">
+
+<script src="./config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+/* ############################################################################
+   HII 監造品質管理系統 — 前端主程式
+   ############################################################################ */
+'use strict';
+var CFG = window.HII_CONFIG || window.SQM_CONFIG || {};
+var APP = document.getElementById('app');
+var TABS = document.getElementById('tabs');
+
+/* ============================================================================
+ * 【0】共用小工具
+ * ==========================================================================*/
+function $(id){ return document.getElementById(id); }
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function pad(n,w){ return String(n).padStart(w||2,'0'); }
+function today(){
+  var d=new Date();
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function nowTime(){ var d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+function addDays(ds,n){
+  var d=new Date(String(ds).replace(/-/g,'/'));
+  d.setDate(d.getDate()+n);
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+function dayDiff(a,b){
+  return Math.round((new Date(String(b).replace(/-/g,'/'))-new Date(String(a).replace(/-/g,'/')))/86400000);
+}
+function uuid(){
+  if(crypto.randomUUID) return crypto.randomUUID();
+  return 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+}
+function jparse(s,d){ try{ return typeof s==='object'?s:JSON.parse(s); }catch(e){ return d; } }
+
+var _tt;
+function toast(msg,ms){
+  var t=$('toast'); t.textContent=msg; t.style.display='block';
+  clearTimeout(_tt); _tt=setTimeout(function(){ t.style.display='none'; }, ms||2400);
+}
+function busy(on,txt){
+  $('busytx').textContent = txt||'處理中…';
+  $('busy').style.display = on?'flex':'none';
+}
+
+/* ============================================================================
+ * 【1】IndexedDB —— 離線佇列與資料快取
+ * --------------------------------------------------------------------------
+ *  為什麼不用 LocalStorage：照片壓縮後單張仍有 200～450KB，
+ *  LocalStorage 只有 5MB 且是同步 API，一次排隊十幾張就爆了，
+ *  而且寫入時會卡住主執行緒。IndexedDB 沒有這兩個問題。
+ * ==========================================================================*/
+var IDB = (function(){
+  var db=null;
+  function open(){
+    return new Promise(function(res,rej){
+      if(db) return res(db);
+      var r=indexedDB.open('sqm',1);
+      r.onupgradeneeded=function(e){
+        var d=e.target.result;
+        if(!d.objectStoreNames.contains('kv')) d.createObjectStore('kv',{keyPath:'k'});
+        if(!d.objectStoreNames.contains('queue')) d.createObjectStore('queue',{keyPath:'id'});
+      };
+      r.onsuccess=function(){ db=r.result; res(db); };
+      r.onerror=function(){ rej(r.error); };
+    });
+  }
+  function tx(store,mode,fn){
+    return open().then(function(d){
+      return new Promise(function(res,rej){
+        var t=d.transaction(store,mode), s=t.objectStore(store), out;
+        out=fn(s);
+        t.oncomplete=function(){ res(out&&out.result!==undefined?out.result:out); };
+        t.onerror=function(){ rej(t.error); };
+      });
+    });
+  }
+  return {
+    get:function(store,key){ return tx(store,'readonly',function(s){ return s.get(key); }); },
+    put:function(store,val){ return tx(store,'readwrite',function(s){ return s.put(val); }); },
+    del:function(store,key){ return tx(store,'readwrite',function(s){ return s.delete(key); }); },
+    all:function(store){ return tx(store,'readonly',function(s){ return s.getAll(); }); },
+    clear:function(store){ return tx(store,'readwrite',function(s){ return s.clear(); }); }
+  };
+})();
+
+/** 資料快取：離線時仍看得到上次載入的清單 */
+var Cache = {
+  set:function(k,v){ return IDB.put('kv',{k:k,v:v,at:Date.now()}); },
+  get:function(k){ return IDB.get('kv',k).then(function(r){ return r||null; }); }
+};
+
+/* ============================================================================
+ * 【2】連線狀態
+ * --------------------------------------------------------------------------
+ *  navigator.onLine 只能反映「有沒有連上網路介面」，工地常見的情況是
+ *  連上了但完全打不通（弱訊號、Captive Portal）。因此再加一層：
+ *  API 呼叫失敗時主動標記為離線，成功時恢復。
+ * ==========================================================================*/
+var Net = {
+  ok: navigator.onLine,
+  set:function(v){
+    if(this.ok===v) return;
+    this.ok=v;
+    render(false);
+    if(v){ toast('📶 已恢復連線'); Queue.autoSync(); }
+    else toast('✈️ 目前離線，資料會暫存於本機');
+  }
+};
+window.addEventListener('online', function(){ Net.set(true); });
+window.addEventListener('offline', function(){ Net.set(false); });
+
+/* ============================================================================
+ * 【3】Google 登入
+ * --------------------------------------------------------------------------
+ *  用 Google Identity Services 取得 id_token（JWT），放在 request body 送給
+ *  GAS。刻意不放 Authorization header —— 那會觸發 CORS preflight，
+ *  而 GAS 無法回應 OPTIONS 請求。
+ * ==========================================================================*/
+var Auth = {
+  token:null, exp:0, user:null, ready:false,
+
+  boot:function(){
+    // 還原上次的登入（token 有效期內免重登）
+    try{
+      var s=JSON.parse(sessionStorage.getItem('sqm_auth')||'null');
+      if(s && s.exp*1000 > Date.now()+60000){
+        this.token=s.token; this.exp=s.exp; this.user=s.user;
+      }
+    }catch(e){}
+    var self=this;
+    var wait=setInterval(function(){
+      if(!(window.google&&google.accounts&&google.accounts.id)) return;
+      clearInterval(wait);
+      try{
+        google.accounts.id.initialize({
+          client_id: CFG.CLIENT_ID,
+          callback: function(r){ self.onCredential(r); },
+          auto_select: true,
+          hd: CFG.HOSTED_DOMAIN,          // 登入畫面只顯示事務所網域帳號
+          cancel_on_tap_outside: false,
+          use_fedcm_for_prompt: true
+        });
+        self.ready=true;
+        if(!self.token) google.accounts.id.prompt();
+        render();
+      }catch(e){ console.error('GIS 初始化失敗',e); }
+    },120);
+    setTimeout(function(){ clearInterval(wait); },12000);
+  },
+
+  onCredential:function(resp){
+    if(!resp||!resp.credential) return;
+    var p=this.decode(resp.credential);
+    if(!p){ toast('登入憑證解析失敗'); return; }
+    var domain=String(p.email||'').split('@')[1]||'';
+    if(CFG.HOSTED_DOMAIN && domain!==CFG.HOSTED_DOMAIN){
+      // 前端先擋一次，給明確訊息；後端還會再驗一次
+      toast('僅限 @'+CFG.HOSTED_DOMAIN+' 帳號登入', 4000);
+      return;
+    }
+    this.token=resp.credential; this.exp=p.exp;
+    this.user={ email:p.email, name:p.name||String(p.email).split('@')[0], picture:p.picture||'' };
+    try{ sessionStorage.setItem('sqm_auth',JSON.stringify({token:this.token,exp:this.exp,user:this.user})); }catch(e){}
+    afterLogin();
+  },
+
+  decode:function(jwt){
+    try{
+      var b=jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+      return JSON.parse(decodeURIComponent(escape(atob(b))));
+    }catch(e){ return null; }
+  },
+
+  valid:function(){ return !!this.token && this.exp*1000 > Date.now()+30000; },
+
+  /** token 快過期時靜默續期；失敗則回登入頁 */
+  refresh:function(){
+    if(this.valid()) return Promise.resolve(this.token);
+    var self=this;
+    return new Promise(function(res){
+      if(!self.ready){ res(null); return; }
+      try{ google.accounts.id.prompt(); }catch(e){}
+      var t=0, iv=setInterval(function(){
+        if(self.valid()){ clearInterval(iv); res(self.token); }
+        else if(++t>25){ clearInterval(iv); res(null); }
+      },300);
+    });
+  },
+
+  signOut:function(){
+    this.token=null; this.exp=0; this.user=null;
+    try{ sessionStorage.removeItem('sqm_auth'); google.accounts.id.disableAutoSelect(); }catch(e){}
+    S.project=null;
+    reset('login');
+  }
+};
+
+/* ============================================================================
+ * 【4】API 客戶端
+ * --------------------------------------------------------------------------
+ *  ⚠ 兩個 GAS 的鐵則：
+ *    · Content-Type 一定要用 text/plain（送 application/json 會觸發 preflight）
+ *    · 不可加任何自訂 header（同樣會觸發 preflight），token 放 body
+ * ==========================================================================*/
+function api(action, payload, opt){
+  opt=opt||{};
+  if(!CFG.API_URL || CFG.API_URL.indexOf('請貼上')>=0){
+    return Promise.reject(new Error('尚未設定 API_URL，請編輯 config.js'));
+  }
+  var run=function(token){
+    return fetch(CFG.API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:action, token:token, payload:payload||{}}),
+      redirect:'follow'
+    }).then(function(r){ return r.text(); }).then(function(t){
+      var j;
+      try{ j=JSON.parse(t); }
+      catch(e){ throw new Error('伺服器回應格式錯誤，請確認 Web App 已部署為「所有人」可存取'); }
+      if(!j.ok){
+        var e=new Error(j.message||'未知錯誤'); e.code=j.code; throw e;
+      }
+      Net.set(true);
+      return j.data;
+    });
+  };
+
+  return Auth.refresh().then(function(tk){
+    if(!tk && !opt.noAuth) throw new Error('登入已逾時，請重新登入');
+    return run(tk||Auth.token);
+  }).catch(function(err){
+    // 憑證問題 → 回登入頁；網路問題 → 標記離線
+    if(err.code==='INVALID_TOKEN'||err.code==='TOKEN_EXPIRED'||err.code==='NO_TOKEN'){
+      Auth.signOut(); toast('登入已逾時，請重新登入');
+    }else if(err instanceof TypeError || /Failed to fetch|NetworkError|Load failed/i.test(err.message)){
+      Net.set(false);
+      err.offline=true;
+      err.message='目前無法連線';
+    }
+    throw err;
+  });
+}
+
+/* ============================================================================
+ * 【5】影像處理 —— EXIF 解析 + 壓縮
+ * --------------------------------------------------------------------------
+ *  EXIF 必須在壓縮「之前」從原始檔讀取：canvas 重繪會把 EXIF 全部丟掉。
+ *  這裡自己寫解析器而不用 CDN 套件，是為了離線可用 —— 工地沒訊號時
+ *  外部 CDN 載不到，整個拍照流程就死了。只解 3 個欄位，200 行內搞定。
+ * ==========================================================================*/
+var Exif = {
+  read:function(file){
+    return new Promise(function(res){
+      var fr=new FileReader();
+      fr.onload=function(){
+        try{ res(Exif.parse(fr.result)||{}); }catch(e){ res({}); }
+      };
+      fr.onerror=function(){ res({}); };
+      // 只讀前 256KB，EXIF 一定在檔頭
+      fr.readAsArrayBuffer(file.slice(0, 256*1024));
+    });
+  },
+
+  parse:function(buf){
+    var v=new DataView(buf);
+    if(v.byteLength<4 || v.getUint16(0,false)!==0xFFD8) return null;   // 非 JPEG
+    var off=2;
+    while(off+4 < v.byteLength){
+      if(v.getUint8(off)!==0xFF) return null;
+      var marker=v.getUint8(off+1);
+      if(marker===0xE1){                                  // APP1 = EXIF
+        return Exif.readApp1(v, off+4);
+      }
+      if(marker===0xDA) return null;                      // 影像資料開始
+      off += 2 + v.getUint16(off+2,false);
+    }
+    return null;
+  },
+
+  readApp1:function(v, start){
+    // "Exif\0\0"
+    if(v.getUint32(start,false)!==0x45786966) return null;
+    var tiff=start+6;
+    var little = v.getUint16(tiff,false)===0x4949;
+    if(v.getUint16(tiff+2,little)!==0x002A) return null;
+    var ifd0 = tiff + v.getUint32(tiff+4,little);
+
+    var t0=Exif.tags(v,tiff,ifd0,little);
+    var out={};
+
+    var exifPtr=t0[0x8769], gpsPtr=t0[0x8825];
+    if(exifPtr){
+      var te=Exif.tags(v,tiff,tiff+exifPtr,little);
+      var dt=te[0x9003]||te[0x9004]||t0[0x0132];         // 原始拍攝 / 數位化 / 修改
+      if(dt){
+        var m=String(dt).match(/(\d{4})[:\-](\d{2})[:\-](\d{2})[ T](\d{2}):(\d{2})/);
+        if(m){
+          out.date=m[1]+'-'+m[2]+'-'+m[3];
+          out.time=m[4]+':'+m[5];
+          out.datetime=out.date+' '+out.time;
+        }
+      }
+    }
+    if(gpsPtr){
+      var tg=Exif.tags(v,tiff,tiff+gpsPtr,little);
+      var lat=Exif.dms(tg[0x0002]), lng=Exif.dms(tg[0x0004]);
+      if(lat!=null && lng!=null){
+        out.lat = (String(tg[0x0001]).toUpperCase()==='S'? -lat : lat);
+        out.lng = (String(tg[0x0003]).toUpperCase()==='W'? -lng : lng);
+        out.lat=Math.round(out.lat*1e6)/1e6;
+        out.lng=Math.round(out.lng*1e6)/1e6;
+      }
+    }
+    return out;
+  },
+
+  /** 讀取一個 IFD 的所有標籤，回傳 {tagId: value} */
+  tags:function(v,tiff,dir,little){
+    var out={};
+    if(dir+2 > v.byteLength) return out;
+    var n=v.getUint16(dir,little);
+    for(var i=0;i<n;i++){
+      var e=dir+2+i*12;
+      if(e+12 > v.byteLength) break;
+      var tag=v.getUint16(e,little), type=v.getUint16(e+2,little), cnt=v.getUint32(e+4,little);
+      var size={1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8}[type]||1;
+      var total=size*cnt;
+      var p = total>4 ? tiff+v.getUint32(e+8,little) : e+8;
+      if(p+total > v.byteLength) continue;
+      out[tag]=Exif.val(v,p,type,cnt,little);
+    }
+    return out;
+  },
+
+  val:function(v,p,type,cnt,little){
+    var i,a=[];
+    if(type===2){                                    // ASCII
+      var s='';
+      for(i=0;i<cnt;i++){ var c=v.getUint8(p+i); if(!c) break; s+=String.fromCharCode(c); }
+      return s;
+    }
+    if(type===3){ for(i=0;i<cnt;i++) a.push(v.getUint16(p+i*2,little)); }
+    else if(type===4){ for(i=0;i<cnt;i++) a.push(v.getUint32(p+i*4,little)); }
+    else if(type===5){                               // RATIONAL
+      for(i=0;i<cnt;i++){
+        var num=v.getUint32(p+i*8,little), den=v.getUint32(p+i*8+4,little);
+        a.push(den? num/den : 0);
+      }
+    }
+    else if(type===10){                              // SRATIONAL
+      for(i=0;i<cnt;i++){
+        var sn=v.getInt32(p+i*8,little), sd=v.getInt32(p+i*8+4,little);
+        a.push(sd? sn/sd : 0);
+      }
+    }
+    else { for(i=0;i<cnt;i++) a.push(v.getUint8(p+i)); }
+    return cnt===1? a[0] : a;
+  },
+
+  /** 度分秒陣列 → 十進位度數 */
+  dms:function(a){
+    if(!a || a.length<3) return null;
+    var d=Number(a[0])||0, m=Number(a[1])||0, s=Number(a[2])||0;
+    return d + m/60 + s/3600;
+  }
+};
+
+var Img = {
+  /**
+   * 壓縮成 JPEG base64。
+   * imageOrientation:'from-image' 讓瀏覽器先套用 EXIF 方向，
+   * 否則直式照片在報表裡會躺著。
+   */
+  compress:function(file){
+    var maxSide=CFG.IMAGE_MAX_SIDE||1600, q=CFG.IMAGE_QUALITY||0.82;
+    return Img.bitmap(file).then(function(bmp){
+      var w=bmp.width, h=bmp.height, sc=Math.min(1, maxSide/Math.max(w,h));
+      var cw=Math.round(w*sc), ch=Math.round(h*sc);
+      var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+      var cx=cv.getContext('2d');
+      cx.fillStyle='#fff'; cx.fillRect(0,0,cw,ch);
+      cx.drawImage(bmp,0,0,cw,ch);
+      if(bmp.close) bmp.close();
+      var url=cv.toDataURL('image/jpeg',q);
+      var b64=url.split(',')[1];
+      return {
+        base64:b64, dataUrl:url, mimeType:'image/jpeg',
+        filename:(file.name||'photo').replace(/\.[^.]+$/,'')+'.jpg',
+        width:cw, height:ch, bytes:Math.round(b64.length*0.75)
+      };
+    });
+  },
+  bitmap:function(file){
+    if(window.createImageBitmap){
+      return createImageBitmap(file,{imageOrientation:'from-image'})
+        .catch(function(){ return Img.viaImg(file); });
+    }
+    return Img.viaImg(file);
+  },
+  viaImg:function(file){
+    return new Promise(function(res,rej){
+      var im=new Image(), u=URL.createObjectURL(file);
+      im.onload=function(){ URL.revokeObjectURL(u); res(im); };
+      im.onerror=function(){ URL.revokeObjectURL(u); rej(new Error('影像讀取失敗')); };
+      im.src=u;
+    });
+  },
+
+  /** 拍照／選圖 → 解析 EXIF → 壓縮，回傳陣列 */
+  pick:function(source){
+    return new Promise(function(res){
+      var inp = source==='lib' ? $('fLib') : $('fCam');
+      inp.value='';
+      inp.onchange=function(){
+        var files=Array.prototype.slice.call(inp.files||[]);
+        if(!files.length){ res([]); return; }
+        busy(true, files.length>1? '處理 '+files.length+' 張照片…' : '處理照片…');
+        Promise.all(files.map(function(f){
+          return Exif.read(f).then(function(ex){
+            return Img.compress(f).then(function(c){ c.exif=ex; return c; });
+          });
+        })).then(function(list){
+          busy(false); res(list);
+        }).catch(function(e){
+          busy(false); toast('照片處理失敗：'+e.message); res([]);
+        });
+      };
+      inp.click();
+    });
+  },
+
+  pickDoc:function(){
+    return new Promise(function(res){
+      var inp=$('fDoc'); inp.value='';
+      inp.onchange=function(){
+        var f=(inp.files||[])[0];
+        if(!f){ res(null); return; }
+        if(f.size > 15*1024*1024){ toast('檔案超過 15MB'); res(null); return; }
+        busy(true,'讀取檔案…');
+        var fr=new FileReader();
+        fr.onload=function(){
+          busy(false);
+          res({ base64:String(fr.result).split(',')[1], filename:f.name,
+                mimeType:f.type, size:f.size });
+        };
+        fr.onerror=function(){ busy(false); toast('檔案讀取失敗'); res(null); };
+        fr.readAsDataURL(f);
+      };
+      inp.click();
+    });
+  }
+};
+
+/* ============================================================================
+ * 【6】離線佇列
+ * --------------------------------------------------------------------------
+ *  每筆都帶 client_uuid，後端以此去重 —— 訊號不穩重送不會產生兩筆資料。
+ * ==========================================================================*/
+var Queue = {
+  add:function(action,payload,meta){
+    payload=payload||{};
+    if(!payload.client_uuid) payload.client_uuid=uuid();
+    var rec={
+      id:uuid(), action:action, payload:payload,
+      type:(meta&&meta.type)||'資料', label:(meta&&meta.label)||'',
+      photos:(meta&&meta.photos)||0,
+      createdAt:Date.now(), tries:0, error:''
+    };
+    return IDB.put('queue',rec).then(function(){ return rec; });
+  },
+  list:function(){
+    return IDB.all('queue').then(function(a){
+      return (a||[]).sort(function(x,y){ return x.createdAt-y.createdAt; });
+    });
+  },
+  count:function(){ return Queue.list().then(function(a){ return a.length; }); },
+  remove:function(id){ return IDB.del('queue',id); },
+
+  /** 分批同步；單筆失敗不影響其他筆 */
+  sync:function(onProgress){
+    return Queue.list().then(function(all){
+      if(!all.length) return {ok:0,fail:0};
+      var size=CFG.SYNC_BATCH_SIZE||5, ok=0, fail=0, done=0;
+      var batches=[];
+      for(var i=0;i<all.length;i+=size) batches.push(all.slice(i,i+size));
+
+      return batches.reduce(function(chain,batch){
+        return chain.then(function(){
+          return api('sync.batch',{
+            ops: batch.map(function(r){ return {op_id:r.id, action:r.action, payload:r.payload}; })
+          }).then(function(d){
+            return Promise.all((d.results||[]).map(function(r){
+              done++;
+              if(r.ok){ ok++; return Queue.remove(r.op_id); }
+              fail++;
+              var src=batch.filter(function(b){ return b.id===r.op_id; })[0];
+              if(src){ src.tries++; src.error=r.message||''; return IDB.put('queue',src); }
+            })).then(function(){ if(onProgress) onProgress(done,all.length); });
+          }).catch(function(e){
+            fail+=batch.length; done+=batch.length;
+            if(onProgress) onProgress(done,all.length);
+            if(e.offline) throw e;      // 斷線就別再送下一批
+          });
+        });
+      }, Promise.resolve()).then(function(){ return {ok:ok,fail:fail}; })
+        .catch(function(){ return {ok:ok,fail:fail,aborted:true}; });
+    });
+  },
+
+  /** 回到線上時自動嘗試一次 */
+  autoSync:function(){
+    if(!Net.ok || !Auth.valid()) return;
+    Queue.count().then(function(n){
+      if(!n) return;
+      Queue.sync().then(function(r){
+        if(r.ok) toast('✓ 已自動同步 '+r.ok+' 筆');
+        refreshBadges();
+      });
+    });
+  }
+};
+
+/* ============================================================================
+ * 【7】路由
+ * ==========================================================================*/
+var S = { project:null, projects:[], stats:null, qcount:0, standards:null };
+var stack=[{n:'boot',p:{}}];
+var tmp={};
+
+function cur(){ return stack[stack.length-1]; }
+function go(n,p){ stack.push({n:n,p:p||{},data:null}); render(); }
+function back(){ if(stack.length>1){ stack.pop(); render(); } else reset('home'); }
+function reset(n,p){ stack=[{n:n,p:p||{},data:null}]; render(); }
+function tab(n){ if(cur().n===n) return; stack=[{n:n,p:{},data:null}]; render(); }
+
+function render(runLoader){
+  var c=cur();
+  var fn=SCREENS[c.n]||SCREENS.home;
+  APP.innerHTML=fn(c.p||{}, c);
+  TABS.innerHTML = MAIN_TABS.indexOf(c.n)>=0 ? tabbar(c.n) : '';
+  if(runLoader!==false && SCREENS[c.n+'_load'] && !c.loaded){
+    c.loaded=true;
+    SCREENS[c.n+'_load'](c.p||{}, c);
+  }
+  if(runLoader!==false) APP.scrollTop=0;
+}
+/** 重新載入目前畫面的資料 */
+function reload(){ var c=cur(); c.loaded=false; c.data=null; render(); }
+
+var MAIN_TABS=['home','photos','defects','materials','checks'];
+
+function bar(title,sub,right,noBack){
+  return '<div class="appbar">'
+    + (noBack?'<img class="logo" src="./brand/logo-white.svg" alt="HII">'
+             :'<button class="iconbtn" onclick="back()" aria-label="返回">‹</button>')
+    + '<h1>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':'')+'</h1>'
+    + (right||'') + '</div>'
+    + (Net.ok?'':'<div class="offbar">✈️ 離線模式 — 資料暫存於本機，連線後同步</div>');
+}
+function tabbar(curName){
+  var items=[['home','🏠','首頁'],['photos','📷','照片'],['defects','⚠️','缺失'],
+             ['materials','📦','材料'],['checks','🏗️','施工']];
+  return '<div class="tabbar">'+items.map(function(x){
+    var badge = (x[0]==='defects' && S.stats && S.stats.defect && S.stats.defect.open>0)
+      ? '<span class="dot">'+S.stats.defect.open+'</span>' : '';
+    return '<button class="'+(curName===x[0]?'on':'')+'" onclick="tab(\''+x[0]+'\')">'
+      + badge + '<span class="ic">'+x[1]+'</span><span>'+x[2]+'</span></button>';
+  }).join('')+'</div>';
+}
+
+function statusTag(s){
+  var m={'待改善':'t-red','改善中':'t-amber','複查中':'t-blue','已結案':'t-green','展延':'t-gray'};
+  return '<span class="tag '+(m[s]||'t-gray')+'">'+esc(s)+'</span>';
+}
+function resultTag(r){
+  var m={'合格':'t-green','不合格':'t-red','限期改善':'t-amber','複查合格':'t-blue',
+         '待複驗':'t-amber','不適用':'t-gray','送驗中':'t-blue'};
+  return '<span class="tag '+(m[r]||'t-gray')+'">'+esc(r)+'</span>';
+}
+function kv(k,v){
+  return '<div style="padding:8px 0;border-bottom:1px solid var(--line)">'
+    +'<div class="xs" style="font-weight:700">'+esc(k)+'</div>'
+    +'<div class="st" style="color:var(--ink);font-size:14px;margin-top:2px;white-space:pre-wrap">'
+    + esc(v||'—')+'</div></div>';
+}
+function skeleton(n){
+  var s='';
+  for(var i=0;i<(n||3);i++) s+='<div class="card"><div class="card-pad">'
+    +'<div class="sk" style="height:14px;width:38%"></div>'
+    +'<div class="sk" style="height:18px;width:72%;margin-top:9px"></div>'
+    +'<div class="sk" style="height:13px;width:52%;margin-top:8px"></div></div></div>';
+  return s;
+}
+function errBox(msg,retry){
+  return '<div class="card" style="border-left:4px solid var(--red)"><div class="card-pad">'
+    +'<div class="tt" style="font-size:14px">載入失敗</div>'
+    +'<div class="st" style="margin-top:4px">'+esc(msg)+'</div>'
+    +(retry!==false?'<button class="btn ghost sm" style="margin-top:10px;width:100%" onclick="reload()">重試</button>':'')
+    +'</div></div>';
+}
+function staleBar(at){
+  return '<div class="stalebar">📴 顯示離線快取　更新於 '
+    + new Date(at).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+    + '</div>';
+}
+
+/** 載入資料到目前畫面，支援離線快取回退 */
+function loadTo(c, key, fn){
+  var cacheKey = key ? (key+'|'+(S.project?S.project.project_id:'-')) : null;
+  return fn().then(function(d){
+    if(cacheKey) Cache.set(cacheKey,d);
+    if(cur()===c){ c.data=d; c.stale=null; render(false); }
+    return d;
+  }).catch(function(e){
+    if(cacheKey){
+      return Cache.get(cacheKey).then(function(hit){
+        if(hit && cur()===c){ c.data=hit.v; c.stale=hit.at; render(false); return hit.v; }
+        if(cur()===c){ c.err=e.message; render(false); }
+      });
+    }
+    if(cur()===c){ c.err=e.message; render(false); }
+  });
+}
+
+function refreshBadges(){
+  Queue.count().then(function(n){ S.qcount=n; });
+  if(S.project && Net.ok){
+    api('stats.dashboard',{project_id:S.project.project_id}).then(function(d){
+      S.stats=d;
+      if(MAIN_TABS.indexOf(cur().n)>=0) TABS.innerHTML=tabbar(cur().n);
+    }).catch(function(){});
+  }
+}
+
+/* ============================================================================
+ * 【8】畫面
+ * ==========================================================================*/
+var SCREENS={};
+
+/* ---------------------- 開機 / 登入 ---------------------- */
+SCREENS.boot=function(){
+  return '<div style="height:100%;display:flex;flex-direction:column;align-items:center;'
+   +'justify-content:center;gap:20px;color:var(--ink-3)">'
+   +'<img src="./brand/logo-dark.svg" alt="HII" style="height:38px;width:auto">'
+   +'<span class="spin dark"></span>'
+   +'<div class="st">載入中…</div></div>';
+};
+
+SCREENS.login=function(){
+  var cfgBad = !CFG.API_URL || CFG.API_URL.indexOf('請貼上')>=0
+            || !CFG.CLIENT_ID || CFG.CLIENT_ID.indexOf('請貼上')>=0;
+  return '<div style="min-height:100%;background:linear-gradient(160deg,#1e3a5f,#0f2440);'
+   +'display:flex;flex-direction:column;justify-content:center;padding:34px;color:#fff">'
+   +'<img class="logo-lg" src="./brand/logo-white.svg" alt="HII">'
+   +'<h1 style="font-size:26px;text-align:center;margin:26px 0 6px;font-weight:900;'
+   +'letter-spacing:.06em">'+ esc(CFG.APP_NAME||'監造品質管理')+'</h1>'
+   +'<p style="text-align:center;opacity:.7;font-size:13.5px;margin:0 0 36px;letter-spacing:.04em">'
+   + esc(CFG.ORG_NAME||'')+'　現場品管數位化系統</p>'
+   + (cfgBad
+      ? '<div style="background:rgba(220,38,38,.2);border:1px solid #f87171;border-radius:12px;'
+        +'padding:14px;font-size:13px;line-height:1.7">⚠️ <b>尚未完成設定</b><br>'
+        +'請編輯 <code>config.js</code>，填入 GAS 部署網址與 OAuth 用戶端 ID。</div>'
+      : '<div id="gbtn" style="display:flex;justify-content:center;min-height:48px"></div>'
+        +'<button class="btn ghost" style="margin-top:14px;background:rgba(255,255,255,.12);'
+        +'color:#fff;border-color:rgba(255,255,255,.25)" onclick="manualLogin()">'
+        +'使用其他 Google 帳號登入</button>')
+   +'<p style="text-align:center;font-size:11.5px;opacity:.55;margin-top:28px;line-height:1.7">'
+   +'僅限 @'+esc(CFG.HOSTED_DOMAIN||'')+' 帳號使用<br>v'+esc(CFG.VERSION||'')+'</p></div>';
+};
+SCREENS.login_load=function(){
+  if(!Auth.ready || !$('gbtn')) return;
+  try{
+    google.accounts.id.renderButton($('gbtn'),
+      {theme:'filled_white',size:'large',shape:'pill',text:'signin_with',
+       locale:'zh-TW',width:280});
+  }catch(e){}
+};
+function manualLogin(){
+  try{ google.accounts.id.disableAutoSelect(); google.accounts.id.prompt(); }catch(e){}
+}
+
+/* ---------------------- 專案選擇 ---------------------- */
+SCREENS.projects=function(p,c){
+  var h = bar('選擇工程專案', Auth.user? Auth.user.name : '', '', true);
+  if(c.stale) h+=staleBar(c.stale);
+  h+='<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div>';
+  if(!c.data) return h+skeleton(2)+'</div>';
+  var list=c.data.items||[];
+  if(!list.length){
+    h+='<div class="empty"><div class="ic">📋</div>'
+      +'<div class="tt" style="margin-top:9px">尚無工程專案</div>'
+      +'<div class="st" style="margin-top:5px">請先建立第一個專案</div></div>';
+  }else{
+    h+=list.map(function(x){
+      return '<button class="card" style="width:100%;border:0;text-align:left;padding:0" '
+       +'onclick="pickProject(\''+x.project_id+'\')"><div class="card-pad">'
+       +'<div class="row"><span class="tag t-blue">'+esc(x.project_code)+'</span>'
+       +'<span class="tag '+(x.status==='進行中'?'t-green':'t-gray')+'">'+esc(x.status)+'</span></div>'
+       +'<div class="tt" style="margin:9px 0 3px">'+esc(x.project_name)+'</div>'
+       +'<div class="st">'+esc(x.work_name)+'</div>'
+       +'<div class="xs" style="margin-top:9px">🏢 '+esc(x.contractor||'—')
+       +'<br>📅 '+esc(x.start_date||'—')+' ～ '+esc(x.due_date||'—')+'</div>'
+       +'</div></button>';
+    }).join('');
+  }
+  h+='<button class="btn ghost" style="margin-top:6px" onclick="go(\'projectNew\')">＋ 新增工程專案</button>'
+   +'<button class="btn ghost" onclick="Auth.signOut()">登出</button>'
+   +'</div>';
+  return h;
+};
+SCREENS.projects_load=function(p,c){
+  loadTo(c,'projects',function(){ return api('project.list',{}); });
+};
+function pickProject(id){
+  var c=cur();
+  var x=((c.data&&c.data.items)||[]).filter(function(v){ return v.project_id===id; })[0];
+  if(!x) return;
+  S.project=x;
+  try{ localStorage.setItem('sqm_pid',id); }catch(e){}
+  Cache.set('project',x);
+  reset('home');
+  refreshBadges();
+}
+
+/* ---------------------- 首頁 ---------------------- */
+SCREENS.home=function(p,c){
+  if(!S.project) return SCREENS.projects(p,c);
+  var pj=S.project, st=c.data||S.stats;
+  var right='<button class="iconbtn" onclick="reset(\'projects\')" aria-label="切換專案">⇄</button>'
+          + '<button class="iconbtn" onclick="go(\'settings\')" aria-label="設定">⚙️</button>';
+  var h=bar(pj.project_name, pj.project_code+' · '+(pj.contractor||''), right, true)+'<div class="body">';
+
+  if(S.qcount>0){
+    h+='<button class="card" style="width:100%;border:0;text-align:left;padding:0;'
+     +'background:var(--blue-bg);border:1px solid #bae6fd" onclick="go(\'sync\')">'
+     +'<div class="card-pad row"><span style="font-size:23px">📤</span>'
+     +'<div class="grow"><div class="tt" style="font-size:14px">'+S.qcount+' 筆資料待同步</div>'
+     +'<div class="xs">離線時暫存於本機，點此上傳</div></div><span class="chev">›</span></div></button>';
+  }
+
+  if(!st){
+    h+='<div class="kpi">'+[0,1,2,3].map(function(){
+      return '<div class="k"><div class="sk" style="height:30px;width:46%"></div>'
+        +'<div class="sk" style="height:12px;width:74%;margin-top:8px"></div></div>';
+    }).join('')+'</div>';
+  }else{
+    var d=st.defect||{};
+    h+='<div class="kpi">'
+     +'<button class="k" style="border-left:4px solid var(--red)" onclick="tab(\'defects\')">'
+     +'<div class="n" style="color:var(--red)">'+(d.open||0)+'</div><div class="l">未結案缺失</div></button>'
+     +'<button class="k" style="border-left:4px solid var(--amber)" onclick="tab(\'defects\')">'
+     +'<div class="n" style="color:var(--amber)">'+(d.overdue||0)+'</div><div class="l">已逾期未改善</div></button>'
+     +'<button class="k" onclick="tab(\'photos\')"><div class="n">'
+     + ((st.photo&&st.photo.this_month)||0)+'</div><div class="l">本月查驗照片</div></button>'
+     +'<button class="k" onclick="tab(\'defects\')"><div class="n" style="color:'
+     + ((d.severe_open||0)?'var(--red)':'var(--ink)')+'">'+(d.severe_open||0)+'</div>'
+     +'<div class="l">重大缺失未結案</div></button></div>';
+  }
+
+  h+='<div class="sect">現場作業</div><div class="mods">'
+   +'<button class="mod" onclick="go(\'photoNew\')"><span class="ic">📷</span>'
+   +'<span class="n">照片查驗</span><span class="d">拍照 · EXIF 自動帶入</span></button>'
+   +'<button class="mod" onclick="go(\'defectNew\')"><span class="ic">⚠️</span>'
+   +'<span class="n">開立缺失</span><span class="d">限期改善追蹤</span></button>'
+   +'<button class="mod" onclick="go(\'materialNew\')"><span class="ic">📦</span>'
+   +'<span class="n">材料抽查</span><span class="d">進場檢驗紀錄</span></button>'
+   +'<button class="mod" onclick="go(\'checkNew\')"><span class="ic">🏗️</span>'
+   +'<span class="n">施工抽查</span><span class="d">檢查表逐項勾選</span></button>'
+   +'</div>'
+   +'<div class="sect">查詢與報表</div><div class="card">'
+   +'<button class="li" onclick="go(\'report\')"><span style="font-size:23px">🖨️</span>'
+   +'<div class="grow"><div class="tt" style="font-size:14px">匯出報表</div>'
+   +'<div class="st">套用 Word 範本產生 PDF</div></div><span class="chev">›</span></button>'
+   +'<button class="li" onclick="go(\'sync\')"><span style="font-size:23px">🔄</span>'
+   +'<div class="grow"><div class="tt" style="font-size:14px">離線暫存與同步</div>'
+   +'<div class="st">目前佇列 '+S.qcount+' 筆</div></div><span class="chev">›</span></button>'
+   +'</div>';
+
+  if(st){
+    h+='<div class="sect">本案累計</div><div class="card"><div class="card-pad">'
+     + statRow('📷 查驗照片',((st.photo&&st.photo.total)||0)+' 張')
+     + statRow('📦 材料抽查',((st.material&&st.material.total)||0)+' 筆')
+     + statRow('🏗️ 施工抽查',((st.construction&&st.construction.total)||0)+' 筆')
+     + statRow('⚠️ 缺失累計',((st.defect&&st.defect.total)||0)+' 件（已結案 '
+        +((st.defect&&st.defect.closed)||0)+' 件）')
+     +'</div></div>';
+  }
+  return h+'</div>';
+};
+function statRow(l,v){
+  return '<div class="row" style="padding:9px 0;border-bottom:1px solid var(--line)">'
+   +'<div class="grow st" style="font-weight:600;color:var(--ink)">'+l+'</div>'
+   +'<div class="tt" style="font-size:14px">'+esc(v)+'</div></div>';
+}
+SCREENS.home_load=function(p,c){
+  if(!S.project) return;
+  Queue.count().then(function(n){ S.qcount=n; if(cur()===c) render(false); });
+  loadTo(c,'stats',function(){
+    return api('stats.dashboard',{project_id:S.project.project_id});
+  }).then(function(d){ if(d){ S.stats=d; TABS.innerHTML=tabbar('home'); } });
+};
+
+/* ---------------------- 查驗照片 ---------------------- */
+SCREENS.photos=function(p,c){
+  var f=tmp.pf||'全部';
+  var h=bar('查驗照片紀錄', S.project.project_name,
+    '<button class="iconbtn" onclick="go(\'report\',{type:\'查驗照片表\'})">🖨️</button>', true);
+  h+='<div class="filters">'+['全部','合格','不合格'].map(function(x){
+      return '<button class="chip '+(f===x?'on':'')+'" onclick="tmp.pf=\''+x+'\';reload()">'+x+'</button>';
+    }).join('')+'</div>';
+  if(c.stale) h+=staleBar(c.stale);
+  h+='<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div><button class="fab" onclick="go(\'photoNew\')">＋</button>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+
+  var list=c.data.items||[];
+  if(!list.length){
+    h+='<div class="empty"><div class="ic">📷</div><div class="tt" style="margin-top:9px">尚無查驗照片</div>'
+      +'<div class="st" style="margin-top:5px">點右下角 ＋ 開始拍照</div></div>';
+  }else{
+    var days={};
+    list.forEach(function(x){ (days[x.inspect_date]=days[x.inspect_date]||[]).push(x); });
+    h+=Object.keys(days).sort().reverse().map(function(d){
+      return '<div class="sect">'+esc(d)+'（'+days[d].length+' 張）</div><div class="card">'
+       + days[d].map(function(x){
+        return '<button class="li" onclick="go(\'photoDetail\',{id:\''+x.photo_id+'\'})">'
+         + (x.thumb_url?'<img src="'+esc(x.thumb_url)+'" loading="lazy" alt="">':'')
+         +'<div class="grow"><div class="row" style="gap:7px;margin-bottom:4px">'
+         +'<span class="xs" style="font-weight:800">#'+esc(x.seq_no)+'</span>'+resultTag(x.result)
+         +(x.defect_id?'<span class="tag t-amber">已開缺失</span>':'')+'</div>'
+         +'<div class="tt" style="font-size:14px">'+esc(x.work_item)+'</div>'
+         +'<div class="st" style="margin:2px 0">📍 '+esc(x.location)+'</div>'
+         +'<div class="xs">'+esc(x.inspect_time)+' · '+esc(x.inspector)+'</div></div>'
+         +'<span class="chev">›</span></button>';
+       }).join('')+'</div>';
+    }).join('');
+  }
+  return h+'</div><button class="fab" onclick="go(\'photoNew\')">＋</button>';
+};
+SCREENS.photos_load=function(p,c){
+  var q={project_id:S.project.project_id, page_size:200};
+  if(tmp.pf && tmp.pf!=='全部') q.result=tmp.pf;
+  loadTo(c,'photos_'+(tmp.pf||'全部'),function(){ return api('photo.list',q); });
+};
+
+SCREENS.photoDetail=function(p,c){
+  var h=bar('查驗照片','', '');
+  if(c.err) return h+'<div class="body">'+errBox(c.err)+'</div>';
+  if(!c.data) return h+'<div class="body">'+skeleton(2)+'</div>';
+  var x=c.data;
+  h='<div class="appbar"><button class="iconbtn" onclick="back()">‹</button>'
+   +'<h1>照片 #'+esc(x.seq_no)+'<span class="sub">'+esc(x.inspect_date)+' '+esc(x.inspect_time)+'</span></h1></div>';
+  return h
+   + (x.file_url?'<img src="'+esc(x.file_url)+'" style="width:100%;display:block" alt="">':'')
+   +'<div class="body"><div class="card"><div class="card-pad">'
+   +'<div class="row" style="margin-bottom:11px;gap:6px;flex-wrap:wrap">'+resultTag(x.result)
+   +'<span class="tag t-gray">'+esc(x.weather||'—')+'</span>'
+   +'<span class="tag t-gray">'+esc(x.inspector)+'</span></div>'
+   + kv('查驗項目',x.work_item)+kv('查驗位置',x.location)+kv('照片說明',x.description)
+   +'</div></div>'
+   +'<div class="sect">EXIF 原始資訊（唯讀）</div><div class="card"><div class="card-pad">'
+   + kv('拍攝時間',x.exif_datetime)
+   + kv('GPS 座標', (x.exif_lat&&x.exif_lng)? (x.exif_lat+', '+x.exif_lng) : '無定位資訊')
+   + (x.exif_lat? '<a class="btn ghost sm" style="width:100%;margin-top:10px;text-decoration:none" '
+       +'target="_blank" rel="noopener" href="https://maps.google.com/?q='+x.exif_lat+','+x.exif_lng+'">'
+       +'🗺️ 在地圖中查看</a>' : '')
+   +'</div></div>'
+   + (x.defect_id? '<button class="card" style="width:100%;border:0;padding:0;text-align:left;'
+      +'border-left:4px solid var(--red)" onclick="go(\'defectDetail\',{id:\''+x.defect_id+'\'})">'
+      +'<div class="li"><span style="font-size:22px">⚠️</span><div class="grow">'
+      +'<div class="tt" style="font-size:14px">此照片已連動缺失單</div>'
+      +'<div class="st">點此查看改善進度</div></div><span class="chev">›</span></div></button>' : '')
+   +'</div>';
+};
+SCREENS.photoDetail_load=function(p,c){
+  loadTo(c,null,function(){
+    return api('photo.list',{project_id:S.project.project_id,page_size:500}).then(function(d){
+      var x=(d.items||[]).filter(function(v){ return v.photo_id===p.id; })[0];
+      if(!x) throw new Error('找不到這筆紀錄');
+      return x;
+    });
+  });
+};
+
+/* ---------------------- 新增查驗照片 ---------------------- */
+SCREENS.photoNew=function(){
+  var ph=tmp.np&&tmp.np.photo;
+  var h=bar('新增查驗照片', S.project.project_name)+'<div class="body">';
+  if(!ph){
+    h+='<button class="addph" style="aspect-ratio:4/3" onclick="npPick(\'cam\')">'
+     +'<span class="ic">📷</span><span>拍照</span>'
+     +'<span class="xs">直接開啟相機</span></button>'
+     +'<button class="btn ghost" style="margin-top:10px" onclick="npPick(\'lib\')">🖼️ 從相簿選擇</button>'
+     +'<div class="card" style="margin-top:16px;background:var(--blue-bg);border:1px solid #bae6fd">'
+     +'<div class="card-pad st" style="color:var(--blue);line-height:1.8">'
+     +'<b>先拍照，再填表</b><br>照片選好後系統會自動讀取 EXIF 的拍攝日期、時間與 GPS，'
+     +'直接填進表單，現場只需補「項目／位置／說明」。</div></div>';
+  }else{
+    h+='<div class="phwrap"><img src="'+ph.dataUrl+'" style="width:100%;border-radius:var(--r);display:block" alt="">'
+     +'<button class="del" onclick="tmp.np.photo=null;render()">✕</button></div>'
+     +'<div class="xs" style="margin:6px 2px 0">'+ph.width+'×'+ph.height+'　'
+     + Math.round(ph.bytes/1024)+' KB'
+     + (ph.exif&&ph.exif.datetime? '　·　EXIF ✓' : '　·　無 EXIF 資訊')+'</div>'
+     + photoForm(ph);
+  }
+  return h+'</div>';
+};
+function npPick(src){
+  Img.pick(src).then(function(list){
+    if(!list.length) return;
+    tmp.np=tmp.np||{};
+    tmp.np.photo=list[0];
+    var ex=list[0].exif||{};
+    tmp.np.date = ex.date || today();
+    tmp.np.time = ex.time || nowTime();
+    render();
+    if(ex.datetime) toast('✓ 已帶入 EXIF 拍攝時間');
+  });
+}
+/**
+ * 產生欄位的雙向繫結屬性。
+ * 這些表單會因為切換「合格／不合格」、天氣、離線狀態等原因重繪，
+ * 若不把輸入即時寫回 tmp，使用者打好的文字會在重繪時消失 ——
+ * 現場填到一半整段說明不見，是最讓人火大的 bug，所以每個欄位都繫結。
+ */
+function bind(obj, key){
+  return ' oninput="tmp.'+obj+'.'+key+'=this.value" onchange="tmp.'+obj+'.'+key+'=this.value"';
+}
+
+function photoForm(ph){
+  var ex=ph.exif||{};
+  return '<label class="f">查驗日期<span class="req">*</span></label>'
+   +'<div class="two">'
+   +'<input class="i'+(ex.date?' auto':'')+'" type="date" id="np_date" value="'+esc(tmp.np.date)+'"'
+   + bind('np','date')+'>'
+   +'<input class="i'+(ex.time?' auto':'')+'" type="time" id="np_time" value="'+esc(tmp.np.time)+'"'
+   + bind('np','time')+'></div>'
+   + (ex.datetime? '<div class="hint">🔵 由 EXIF 自動帶入，可手動修正</div>' : '')
+   +'<label class="f">查驗項目<span class="req">*</span></label>'
+   +'<input class="i" id="np_item" list="workitems" placeholder="例：鋼筋工程" value="'
+   + esc(tmp.np.item||'')+'"'+bind('np','item')+'>'
+   +'<datalist id="workitems">'
+   + (S.standards&&S.standards.work_items? S.standards.work_items.map(function(w){
+       return '<option value="'+esc(w.work_item)+'">'; }).join('') : '')
+   +'<option value="安全衛生"><option value="環境清潔"><option value="其他"></datalist>'
+   +'<label class="f">查驗位置<span class="req">*</span></label>'
+   +'<input class="i" id="np_loc" placeholder="例：3F 梁 B3-B5 通" value="'+esc(tmp.np.loc||'')+'"'
+   + bind('np','loc')+'>'
+   +'<label class="f">照片說明</label>'
+   +'<textarea class="i" id="np_desc" placeholder="描述查驗內容、量測數值、與設計圖說之符合性…"'
+   + bind('np','desc')+'>'+ esc(tmp.np.desc||'')+'</textarea>'
+   +'<label class="f">查驗結果<span class="req">*</span></label>'
+   +'<div class="seg" id="np_res">'
+   + ['合格','不合格','不適用'].map(function(r){
+      var on=(tmp.np.res||'合格')===r;
+      var cls=r==='合格'?'ok':r==='不合格'?'ng':'na';
+      return '<button class="'+(on?'on '+cls:'')+'" onclick="tmp.np.res=\''+r+'\';render()">'+r+'</button>';
+     }).join('')+'</div>'
+   + (tmp.np.res==='不合格'? autoDefectBox() : '')
+   +'<label class="f">天氣</label><div class="seg">'
+   + ['晴','陰','雨'].map(function(w){
+      var on=(tmp.np.w||'晴')===w;
+      return '<button class="'+(on?'on':'')+'" onclick="tmp.np.w=\''+w+'\';render()">'+w+'</button>';
+     }).join('')+'</div>'
+   +'<button class="btn" style="margin-top:20px" onclick="savePhoto()">'
+   + (Net.ok?'☁️ 儲存並上傳':'💾 儲存至離線佇列')+'</button>'
+   +'<button class="btn ghost" onclick="tmp.np=null;back()">取消</button>';
+}
+function autoDefectBox(){
+  if(tmp.np.ad===undefined) tmp.np.ad=true;
+  return '<div class="card" style="border-left:4px solid var(--red);margin-top:12px"><div class="card-pad">'
+   +'<div class="row"><span style="font-size:20px">⚠️</span><div class="grow">'
+   +'<div class="tt" style="font-size:14px">同步開立缺失單</div>'
+   +'<div class="xs">此照片自動帶為「改善前照片」</div></div>'
+   +'<input type="checkbox" '+(tmp.np.ad?'checked':'')+' onchange="tmp.np.ad=this.checked;render()"></div>'
+   + (tmp.np.ad
+     ? '<label class="f">嚴重度</label><div class="seg">'
+       + ['輕微','一般','重大'].map(function(s){
+          var on=(tmp.np.sev||'一般')===s;
+          return '<button class="'+(on?'on':'')+'" onclick="setSev(\''+s+'\')">'+s+'</button>';
+         }).join('')+'</div>'
+       +'<label class="f">改善期限</label>'
+       +'<input class="i auto" type="date" id="np_due" value="'
+       + esc(tmp.np.due||addDays(today(), 7))+'"'+bind('np','due')+'>'
+       +'<div class="hint">🔵 依嚴重度預設（重大 3 天／一般 7 天／輕微 14 天），可修改</div>'
+       +'<label class="f">責任廠商</label>'
+       +'<input class="i auto" id="np_vendor" value="'
+       + esc(tmp.np.vendor!=null? tmp.np.vendor : (S.project.contractor||''))+'"'+bind('np','vendor')+'>'
+     : '')
+   +'</div></div>';
+}
+function setSev(s){
+  tmp.np.sev=s;
+  tmp.np.due=addDays(today(), s==='重大'?3 : s==='輕微'?14 : 7);
+  render();
+}
+/** 送出前先把 DOM 現值收回 tmp，避免使用者最後一筆輸入還沒觸發 oninput */
+function grab(obj, map){
+  Object.keys(map).forEach(function(k){
+    var e=$(map[k]); if(e) tmp[obj][k]=e.value;
+  });
+}
+function savePhoto(){
+  grab('np',{date:'np_date',time:'np_time',item:'np_item',loc:'np_loc',desc:'np_desc',
+             due:'np_due',vendor:'np_vendor'});
+  var item=(tmp.np.item||'').trim(), loc=(tmp.np.loc||'').trim();
+  if(!item||!loc){ toast('請填寫查驗項目與查驗位置'); return; }
+  var ph=tmp.np.photo, ex=ph.exif||{};
+  var payload={
+    project_id:S.project.project_id,
+    inspect_date:tmp.np.date||today(),
+    inspect_time:tmp.np.time||nowTime(),
+    work_item:item, location:loc,
+    description:(tmp.np.desc||'').trim(),
+    result:tmp.np.res||'合格',
+    weather:tmp.np.w||'晴',
+    inspector:Auth.user.name,
+    exif:{datetime:ex.datetime||'', lat:ex.lat!=null?ex.lat:'', lng:ex.lng!=null?ex.lng:''},
+    photo:{base64:ph.base64, mimeType:ph.mimeType, filename:ph.filename},
+    client_uuid:uuid()
+  };
+  if(payload.result==='不合格' && tmp.np.ad){
+    payload.auto_defect=true;
+    payload.severity=tmp.np.sev||'一般';
+    payload.due_date=tmp.np.due||addDays(today(),7);
+    payload.responsible_vendor=tmp.np.vendor||S.project.contractor;
+  }
+  submit('photo.create', payload, {type:'查驗照片', label:item+' / '+loc, photos:1}, 'photos');
+}
+
+/**
+ * 共用送出：線上直接打 API，離線寫入佇列。
+ * 送出過程鎖住按鈕避免重複點擊；失敗時自動改存佇列，資料不會弄丟。
+ */
+function submit(action, payload, meta, backTo){
+  if(!Net.ok){
+    Queue.add(action,payload,meta).then(function(){
+      refreshBadges();
+      toast('💾 已存入離線佇列，連線後自動同步');
+      tmp.np=null; tmp.nd=null; tmp.nm=null; tmp.nc=null;
+      reset(backTo||'home');
+    });
+    return;
+  }
+  busy(true,'上傳中…');
+  api(action,payload).then(function(){
+    busy(false);
+    toast('✓ 已儲存並上傳');
+    tmp.np=null; tmp.nd=null; tmp.nm=null; tmp.nc=null;
+    reset(backTo||'home');
+    refreshBadges();
+  }).catch(function(e){
+    busy(false);
+    if(e.offline){
+      Queue.add(action,payload,meta).then(function(){
+        refreshBadges();
+        toast('📴 連線中斷，已存入離線佇列');
+        tmp.np=null; tmp.nd=null; tmp.nm=null; tmp.nc=null;
+        reset(backTo||'home');
+      });
+    }else{
+      toast('儲存失敗：'+e.message, 4000);
+    }
+  });
+}
+
+/* ---------------------- 缺失改善 ---------------------- */
+SCREENS.defects=function(p,c){
+  var f=tmp.df||'未結案';
+  var h=bar('缺失改善追蹤', S.project.project_name,'',true);
+  h+='<div class="filters">'
+   + ['未結案','全部','待改善','改善中','複查中','已結案'].map(function(x){
+      return '<button class="chip '+(f===x?'on':'')+'" onclick="tmp.df=\''+x+'\';reload()">'+x+'</button>';
+     }).join('')+'</div>';
+  if(c.stale) h+=staleBar(c.stale);
+  h+='<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div><button class="fab" onclick="go(\'defectNew\')">＋</button>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+
+  var list=c.data.items||[];
+  if(!list.length){
+    h+='<div class="empty"><div class="ic">✓</div>'
+      +'<div class="tt" style="margin-top:9px">沒有符合條件的缺失</div></div>';
+  }else{
+    h+=list.map(function(x){
+      var od=x.is_overdue;
+      return '<button class="card" style="width:100%;border:0;padding:0;text-align:left;'
+       +'border-left:4px solid '+(x.status==='已結案'?'var(--green)':od?'var(--red)':'var(--amber)')+'" '
+       +'onclick="go(\'defectDetail\',{id:\''+x.defect_id+'\'})"><div class="card-pad">'
+       +'<div class="row" style="gap:6px;flex-wrap:wrap">'+statusTag(x.status)
+       +'<span class="tag '+(x.severity==='重大'?'t-red':x.severity==='一般'?'t-amber':'t-gray')+'">'
+       + esc(x.severity)+'</span>'
+       +'<span class="tag t-gray">'+esc(x.category)+'</span>'
+       +(od?'<span class="tag t-red">逾期 '+x.overdue_days+' 天</span>':'')+'</div>'
+       +'<div class="tt" style="margin:9px 0 3px">'+esc(x.item)+'</div>'
+       +'<div class="st">📍 '+esc(x.location)+'</div>'
+       +'<div class="row" style="margin-top:10px;gap:9px">'
+       + thumbOf(x.before_urls) + (thumbOf(x.after_urls)?'<span style="color:var(--ink-3)">→</span>':'')
+       + thumbOf(x.after_urls)
+       +'<div class="grow xs" style="text-align:right">'+esc(x.defect_no)
+       +'<br>改善期限 '+esc(x.due_date)+'</div></div></div></button>';
+    }).join('');
+  }
+  return h+'</div><button class="fab" onclick="go(\'defectNew\')">＋</button>';
+};
+function thumbOf(json){
+  var a=jparse(json,[]);
+  return a&&a[0] ? '<img src="'+esc(a[0])+'" loading="lazy" alt="" '
+    +'style="width:52px;height:52px;border-radius:8px;object-fit:cover">' : '';
+}
+SCREENS.defects_load=function(p,c){
+  var f=tmp.df||'未結案';
+  var q={project_id:S.project.project_id, page_size:300};
+  if(f==='未結案') q.open_only=true;
+  else if(f!=='全部') q.status=f;
+  loadTo(c,'defects_'+f,function(){ return api('defect.list',q); });
+};
+
+SCREENS.defectDetail=function(p,c){
+  if(c.err) return bar('缺失單')+'<div class="body">'+errBox(c.err)+'</div>';
+  if(!c.data) return bar('缺失單')+'<div class="body">'+skeleton(2)+'</div>';
+  var x=c.data;
+  var bf=jparse(x.before_urls,[]), af=jparse(x.after_urls,[]);
+  return bar(x.defect_no, x.item)
+   +'<div class="body"><div class="card"><div class="card-pad">'
+   +'<div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:12px">'+statusTag(x.status)
+   +'<span class="tag '+(x.severity==='重大'?'t-red':'t-amber')+'">'+esc(x.severity)+'</span>'
+   +'<span class="tag t-gray">來源：'+esc(x.source_type||'手動')+'</span>'
+   +(x.is_overdue?'<span class="tag t-red">逾期 '+x.overdue_days+' 天</span>':'')+'</div>'
+   + kv('缺失位置',x.location)+kv('缺失內容',x.description)
+   + kv('責任廠商',(x.responsible_vendor||'')+(x.responsible_person?'（'+x.responsible_person+'）':''))
+   + kv('發現日期 / 改善期限',(x.found_date||'')+' → '+(x.due_date||''))
+   +'</div></div>'
+   +'<div class="sect">改善前後對照</div><div class="grid2">'
+   +'<div><div class="xs" style="font-weight:800;margin-bottom:5px">改善前</div>'
+   + (bf[0]?'<img src="'+esc(bf[0])+'" class="thumb" style="border-radius:11px" alt="">'
+          :'<div class="thumb" style="border-radius:11px"></div>')+'</div>'
+   +'<div><div class="xs" style="font-weight:800;margin-bottom:5px">改善後</div>'
+   + (af[0]?'<img src="'+esc(af[0])+'" class="thumb" style="border-radius:11px" alt="">'
+     :'<button class="addph" onclick="go(\'defectImprove\',{id:\''+x.defect_id+'\'})">'
+      +'<span class="ic">📷</span><span>補拍改善後</span></button>')+'</div></div>'
+   +'<div class="sect">處理歷程</div><div class="card"><div class="card-pad"><div class="tl">'
+   +'<div class="ev done"><div class="tt" style="font-size:13.5px">開立缺失單</div>'
+   +'<div class="xs">'+esc(x.created_at||'')+'</div></div>'
+   +'<div class="ev '+(x.status==='待改善'?'now':'done')+'">'
+   +'<div class="tt" style="font-size:13.5px">通知廠商改善</div>'
+   +'<div class="xs">'+esc(x.responsible_vendor||'')+' · 期限 '+esc(x.due_date||'')+'</div></div>'
+   +'<div class="ev '+(af.length?'done':x.status==='改善中'?'now':'')+'">'
+   +'<div class="tt" style="font-size:13.5px">廠商回報改善完成</div>'
+   +'<div class="xs">'+(af.length?'已上傳改善後照片':'尚未回報')+'</div></div>'
+   +'<div class="ev '+(x.status==='已結案'?'done':x.recheck_date?'now':'')+'">'
+   +'<div class="tt" style="font-size:13.5px">監造複查</div>'
+   +'<div class="xs">'+esc(x.recheck_date||'尚未複查')+'</div></div>'
+   +'<div class="ev '+(x.status==='已結案'?'done':'')+'" style="padding-bottom:0">'
+   +'<div class="tt" style="font-size:13.5px">結案</div>'
+   +'<div class="xs">'+esc(x.close_date||'—')+'</div></div>'
+   +'</div></div></div>'
+   + (x.status!=='已結案'
+      ? '<button class="btn" onclick="go(\'defectImprove\',{id:\''+x.defect_id+'\'})">'
+        +'📷 改善回報 / 複查</button>'
+      : '<div class="card" style="background:var(--green-bg);border:1px solid #bbf7d0">'
+        +'<div class="card-pad" style="text-align:center;color:var(--green)">'
+        +'<div style="font-size:30px">✓</div><div class="tt">已於 '+esc(x.close_date)+' 結案</div></div></div>')
+   +'</div>';
+};
+SCREENS.defectDetail_load=function(p,c){
+  loadTo(c,null,function(){
+    return api('defect.list',{project_id:S.project.project_id,page_size:500}).then(function(d){
+      var x=(d.items||[]).filter(function(v){ return v.defect_id===p.id; })[0];
+      if(!x) throw new Error('找不到這張缺失單');
+      return x;
+    });
+  });
+};
+
+SCREENS.defectImprove=function(p){
+  tmp.di=tmp.di||{photos:[],pass:true};
+  return bar('改善回報 / 複查')
+   +'<div class="body">'
+   +'<label class="f">改善後照片<span class="req">*</span></label>'
+   +'<div class="grid2">'
+   + tmp.di.photos.map(function(ph,i){
+      return '<div class="phwrap"><img src="'+ph.dataUrl+'" class="thumb" style="border-radius:11px" alt="">'
+       +'<button class="del" onclick="tmp.di.photos.splice('+i+',1);render()">✕</button></div>';
+     }).join('')
+   +'<button class="addph" onclick="pickInto(\'di\',\'cam\')"><span class="ic">📷</span><span>拍照</span></button>'
+   +'</div>'
+   +'<label class="f">複查日期</label><input class="i auto" type="date" id="di_date" value="'
+   + esc(tmp.di.date||today())+'"'+bind('di','date')+'>'
+   +'<label class="f">複查人員</label><input class="i auto" id="di_by" value="'
+   + esc(tmp.di.by||Auth.user.name)+'"'+bind('di','by')+'>'
+   +'<label class="f">複查結果<span class="req">*</span></label>'
+   +'<div class="seg">'
+   +'<button class="'+(tmp.di.pass?'on ok':'')+'" onclick="tmp.di.pass=true;render()">改善完成<br>准予結案</button>'
+   +'<button class="'+(!tmp.di.pass?'on ng':'')+'" onclick="tmp.di.pass=false;render()">仍不符合<br>續追蹤</button>'
+   +'</div>'
+   +'<label class="f">複查意見</label>'
+   +'<textarea class="i" id="di_note" placeholder="例：塗膜厚度複測 1.6mm，轉角補強已完成，符合設計要求。"'
+   + bind('di','note')+'>'+esc(tmp.di.note||'')+'</textarea>'
+   +'<button class="btn green" style="margin-top:20px" onclick="saveImprove(\''+p.id+'\')">'
+   +'✓ 送出複查結果</button>'
+   +'<button class="btn ghost" onclick="tmp.di=null;back()">取消</button>'
+   +'</div>';
+};
+function pickInto(key,src){
+  Img.pick(src).then(function(list){
+    if(!list.length) return;
+    tmp[key]=tmp[key]||{photos:[]};
+    tmp[key].photos=(tmp[key].photos||[]).concat(list);
+    render();
+  });
+}
+function saveImprove(id){
+  grab('di',{date:'di_date',by:'di_by',note:'di_note'});
+  if(!tmp.di.photos.length){ toast('請至少上傳一張改善後照片'); return; }
+  var payload={
+    defect_id:id,
+    after_photos:tmp.di.photos.map(function(p){
+      return {base64:p.base64, mimeType:p.mimeType, filename:p.filename}; }),
+    recheck_date:tmp.di.date||today(),
+    rechecker:tmp.di.by||Auth.user.name,
+    pass:!!tmp.di.pass,
+    remark:(tmp.di.note||'').trim(),
+    client_uuid:uuid()
+  };
+  tmp.di=null;
+  submit('defect.improve', payload,
+    {type:'缺失改善回報', label:id, photos:payload.after_photos.length}, 'defects');
+}
+
+SCREENS.defectNew=function(){
+  tmp.nd=tmp.nd||{photos:[],sev:'一般',cat:'施工品質'};
+  return bar('開立缺失單', S.project.project_name)
+   +'<div class="body">'
+   +'<label class="f">改善前照片<span class="req">*</span></label>'
+   +'<div class="grid2">'
+   + tmp.nd.photos.map(function(ph,i){
+      return '<div class="phwrap"><img src="'+ph.dataUrl+'" class="thumb" style="border-radius:11px" alt="">'
+       +'<button class="del" onclick="tmp.nd.photos.splice('+i+',1);render()">✕</button></div>';
+     }).join('')
+   +'<button class="addph" onclick="pickInto(\'nd\',\'cam\')"><span class="ic">📷</span><span>拍照</span></button>'
+   +'</div>'
+   +'<button class="btn ghost sm" style="width:100%;margin-top:9px" onclick="pickInto(\'nd\',\'lib\')">'
+   +'🖼️ 從相簿選擇</button>'
+   +'<label class="f">缺失位置<span class="req">*</span></label>'
+   +'<input class="i" id="nd_loc" placeholder="例：B1 電梯機坑" value="'+esc(tmp.nd.loc||'')+'"'
+   + bind('nd','loc')+'>'
+   +'<label class="f">缺失類別</label><div class="seg" style="flex-wrap:wrap">'
+   + ['施工品質','材料','安全衛生','環境清潔','文件','其他'].map(function(x){
+      return '<button style="flex:0 0 30%" class="'+(tmp.nd.cat===x?'on':'')+'" '
+       +'onclick="tmp.nd.cat=\''+x+'\';render()">'+x+'</button>';
+     }).join('')+'</div>'
+   +'<label class="f">缺失項目<span class="req">*</span></label>'
+   +'<input class="i" id="nd_item" placeholder="例：防水塗膜厚度不足" value="'+esc(tmp.nd.item||'')+'"'
+   + bind('nd','item')+'>'
+   +'<label class="f">缺失內容描述</label>'
+   +'<textarea class="i" id="nd_desc" placeholder="描述缺失情形、量測數值、與規範之差異…"'
+   + bind('nd','desc')+'>'+esc(tmp.nd.desc||'')+'</textarea>'
+   +'<label class="f">嚴重度</label><div class="seg">'
+   + ['輕微','一般','重大'].map(function(s){
+      return '<button class="'+(tmp.nd.sev===s?'on':'')+'" onclick="ndSev(\''+s+'\')">'+s+'</button>';
+     }).join('')+'</div>'
+   +'<label class="f">改善期限<span class="req">*</span></label>'
+   +'<input class="i auto" type="date" id="nd_due" value="'
+   + esc(tmp.nd.due||addDays(today(),7))+'"'+bind('nd','due')+'>'
+   +'<div class="hint">🔵 依嚴重度自動預設，可修改</div>'
+   +'<label class="f">責任廠商</label>'
+   +'<input class="i auto" id="nd_vendor" value="'
+   + esc(tmp.nd.vendor!=null? tmp.nd.vendor : (S.project.contractor||''))+'"'+bind('nd','vendor')+'>'
+   +'<label class="f">廠商聯絡人</label><input class="i" id="nd_person" placeholder="例：王工地主任" '
+   +'value="'+esc(tmp.nd.person||'')+'"'+bind('nd','person')+'>'
+   +'<button class="btn" style="margin-top:20px" onclick="saveDefect()">'
+   + (Net.ok?'☁️ 建立缺失單':'💾 儲存至離線佇列')+'</button>'
+   +'<button class="btn ghost" onclick="tmp.nd=null;back()">取消</button>'
+   +'</div>';
+};
+function ndSev(s){
+  tmp.nd.sev=s;
+  tmp.nd.due=addDays(today(), s==='重大'?3 : s==='輕微'?14 : 7);
+  render();
+}
+function saveDefect(){
+  grab('nd',{loc:'nd_loc',item:'nd_item',desc:'nd_desc',due:'nd_due',
+             vendor:'nd_vendor',person:'nd_person'});
+  var item=(tmp.nd.item||'').trim(), loc=(tmp.nd.loc||'').trim();
+  if(!item||!loc){ toast('請填寫缺失位置與缺失項目'); return; }
+  if(!tmp.nd.photos.length){ toast('請至少上傳一張改善前照片'); return; }
+  var payload={
+    project_id:S.project.project_id,
+    found_date:today(), location:loc, category:tmp.nd.cat, item:item,
+    description:(tmp.nd.desc||'').trim(),
+    severity:tmp.nd.sev, due_date:tmp.nd.due||addDays(today(),7),
+    responsible_vendor:tmp.nd.vendor||S.project.contractor, responsible_person:tmp.nd.person||'',
+    before_photos:tmp.nd.photos.map(function(p){
+      return {base64:p.base64, mimeType:p.mimeType, filename:p.filename}; }),
+    source_type:'手動', client_uuid:uuid()
+  };
+  submit('defect.create', payload,
+    {type:'缺失單', label:item+' / '+loc, photos:payload.before_photos.length}, 'defects');
+}
+
+/* ---------------------- 材料抽查 ---------------------- */
+SCREENS.materials=function(p,c){
+  var h=bar('材料抽查紀錄', S.project.project_name,'',true);
+  if(c.stale) h+=staleBar(c.stale);
+  h+='<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div><button class="fab" onclick="go(\'materialNew\')">＋</button>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+  var list=c.data.items||[];
+  if(!list.length){
+    h+='<div class="empty"><div class="ic">📦</div>'
+      +'<div class="tt" style="margin-top:9px">尚無材料抽查紀錄</div></div>';
+  }else{
+    h+=list.map(function(x){
+      return '<button class="card" style="width:100%;border:0;padding:0;text-align:left" '
+       +'onclick="go(\'materialDetail\',{id:\''+x.check_id+'\'})"><div class="card-pad">'
+       +'<div class="row" style="gap:6px;flex-wrap:wrap">'+resultTag(x.result)
+       +'<span class="tag '+(x.test_status==='合格'?'t-green':x.test_status==='送驗中'?'t-blue':'t-gray')
+       +'">送驗：'+esc(x.test_status)+'</span>'
+       +(x.defect_id?'<span class="tag t-amber">已開缺失</span>':'')+'</div>'
+       +'<div class="tt" style="margin:9px 0 3px">'+esc(x.material_name)+'</div>'
+       +'<div class="st">'+esc(x.spec||'')+'</div>'
+       +'<div class="row" style="margin-top:10px;gap:9px">'+thumbOf(x.photo_urls)
+       +'<div class="grow xs">進場 '+esc(x.arrival_qty)+' '+esc(x.unit)
+       +' · 抽查 '+esc(x.sample_qty)+' '+esc(x.unit)
+       +'<br>'+esc(x.check_date)+' · '+esc(x.inspector)+'</div>'
+       +'<span class="chev">›</span></div></div></button>';
+    }).join('');
+  }
+  return h+'</div><button class="fab" onclick="go(\'materialNew\')">＋</button>';
+};
+SCREENS.materials_load=function(p,c){
+  loadTo(c,'materials',function(){
+    return api('material.list',{project_id:S.project.project_id,page_size:300});
+  });
+};
+
+SCREENS.materialDetail=function(p,c){
+  if(c.err) return bar('材料抽查')+'<div class="body">'+errBox(c.err)+'</div>';
+  if(!c.data) return bar('材料抽查')+'<div class="body">'+skeleton(2)+'</div>';
+  var x=c.data, ph=jparse(x.photo_urls,[]);
+  return bar(x.check_no, x.material_name)
+   +'<div class="body">'
+   + (ph.length? '<div class="grid2" style="margin-bottom:12px">'
+      + ph.map(function(u){ return '<img src="'+esc(u)+'" class="thumb" style="border-radius:11px" alt="">'; }).join('')
+      +'</div>' : '')
+   +'<div class="card"><div class="card-pad">'
+   +'<div class="row" style="gap:6px;margin-bottom:11px">'+resultTag(x.result)
+   +'<span class="tag '+(x.test_status==='合格'?'t-green':'t-blue')+'">送驗：'+esc(x.test_status)+'</span></div>'
+   + kv('規格 / 型號',x.spec)+kv('廠牌',x.brand)+kv('供應商',x.supplier)
+   + kv('進場 / 抽查數量',(x.arrival_qty||'')+' '+(x.unit||'')+' ／ '+(x.sample_qty||'')+' '+(x.unit||''))
+   + kv('設計規範 / 標準',x.standard)+kv('抽查方式',x.method)
+   +'</div></div>'
+   +'<div class="sect">文件追蹤</div><div class="card"><div class="card-pad">'
+   + kv('出廠證明編號',x.cert_no)+kv('檢試驗報告編號',x.test_report_no)+kv('送驗狀態',x.test_status)
+   +'</div></div></div>';
+};
+SCREENS.materialDetail_load=function(p,c){
+  loadTo(c,null,function(){
+    return api('material.list',{project_id:S.project.project_id,page_size:500}).then(function(d){
+      var x=(d.items||[]).filter(function(v){ return v.check_id===p.id; })[0];
+      if(!x) throw new Error('找不到這筆紀錄');
+      return x;
+    });
+  });
+};
+
+SCREENS.materialNew=function(){
+  tmp.nm=tmp.nm||{photos:[],result:'合格',method:'目視檢查',unit:'式',test:'未送驗'};
+  return bar('新增材料抽查', S.project.project_name)
+   +'<div class="body">'
+   +'<label class="f">現場抽查照片<span class="req">*</span></label>'
+   +'<div class="grid2">'
+   + tmp.nm.photos.map(function(ph,i){
+      return '<div class="phwrap"><img src="'+ph.dataUrl+'" class="thumb" style="border-radius:11px" alt="">'
+       +'<button class="del" onclick="tmp.nm.photos.splice('+i+',1);render()">✕</button></div>';
+     }).join('')
+   +'<button class="addph" onclick="pickInto(\'nm\',\'cam\')"><span class="ic">📷</span>'
+   +'<span>材料 / 證明</span></button></div>'
+   +'<div class="hint">🔵 建議至少兩張：材料本體 + 出廠證明／標籤</div>'
+   +'<label class="f">材料名稱<span class="req">*</span></label>'
+   +'<input class="i" id="nm_name" placeholder="例：竹節鋼筋 SD420W #8" value="'
+   + esc(tmp.nm.name||'')+'"'+bind('nm','name')+'>'
+   +'<label class="f">規格 / 型號</label><input class="i" id="nm_spec" placeholder="例：D25 / SD420W" '
+   +'value="'+esc(tmp.nm.spec||'')+'"'+bind('nm','spec')+'>'
+   +'<div class="two"><div><label class="f">廠牌</label>'
+   +'<input class="i" id="nm_brand" value="'+esc(tmp.nm.brand||'')+'"'+bind('nm','brand')+'></div>'
+   +'<div><label class="f">供應商</label>'
+   +'<input class="i" id="nm_sup" value="'+esc(tmp.nm.sup||'')+'"'+bind('nm','sup')+'></div></div>'
+   +'<div class="two"><div><label class="f">進場數量<span class="req">*</span></label>'
+   +'<input class="i" id="nm_qty" type="number" inputmode="decimal" placeholder="0" value="'
+   + esc(tmp.nm.qty||'')+'"'+bind('nm','qty')+'></div>'
+   +'<div><label class="f">單位</label><select class="i" id="nm_unit"'+bind('nm','unit')+'>'
+   + ['式','批','支','片','袋','包','車','m','m2','m3','kg','t','組','個'].map(function(u){
+      return '<option '+(tmp.nm.unit===u?'selected':'')+'>'+u+'</option>'; }).join('')
+   +'</select></div></div>'
+   +'<label class="f">抽查數量</label>'
+   +'<input class="i" id="nm_sample" type="number" inputmode="decimal" value="'
+   + esc(tmp.nm.sample||'')+'"'+bind('nm','sample')+'>'
+   +'<div class="sect">查驗標準 <span class="tag t-blue">📘 可自標準庫帶入</span></div>'
+   +'<button class="btn ghost sm" style="width:100%" onclick="go(\'specPick\')">'
+   +'📘 從監造計畫書標準庫選取</button>'
+   +'<label class="f">設計規範 / 標準</label>'
+   +'<input class="i'+(tmp.nm.stdFrom?' auto':'')+'" id="nm_std" placeholder="例：CNS 560 / 結構圖 S 系列" '
+   +'value="'+esc(tmp.nm.std||'')+'"'+bind('nm','std')+'>'
+   +'<label class="f">抽查方式</label>'
+   +'<input class="i'+(tmp.nm.stdFrom?' auto':'')+'" id="nm_method" placeholder="例：取樣送驗" '
+   +'value="'+esc(tmp.nm.stdMethod||tmp.nm.method||'')+'"'+bind('nm','stdMethod')+'>'
+   + (tmp.nm.stdFrom? '<div class="hint">🔵 帶自「'+esc(tmp.nm.stdFrom)+'」　'
+      + esc(tmp.nm.stdFreq||'')+'</div>':'')
+   +'<label class="f">抽查結果<span class="req">*</span></label><div class="seg">'
+   + ['合格','不合格','待複驗'].map(function(r){
+      var cls=r==='合格'?'ok':r==='不合格'?'ng':'na';
+      return '<button class="'+(tmp.nm.result===r?'on '+cls:'')+'" '
+       +'onclick="tmp.nm.result=\''+r+'\';render()">'+r+'</button>';
+     }).join('')+'</div>'
+   + (tmp.nm.result==='不合格'
+      ? '<div class="card" style="border-left:4px solid var(--red);margin-top:12px"><div class="card-pad row">'
+        +'<span style="font-size:20px">⚠️</span><div class="grow">'
+        +'<div class="tt" style="font-size:14px">同步開立缺失單</div>'
+        +'<div class="xs">責任廠商帶入供應商</div></div>'
+        +'<input type="checkbox" '+(tmp.nm.ad!==false?'checked':'')
+        +' onchange="tmp.nm.ad=this.checked"></div></div>' : '')
+   +'<div class="sect">文件追蹤</div>'
+   +'<label class="f">出廠證明編號</label>'
+   +'<input class="i" id="nm_cert" value="'+esc(tmp.nm.cert||'')+'"'+bind('nm','cert')+'>'
+   +'<label class="f">送驗狀態</label><select class="i" id="nm_test"'+bind('nm','test')+'>'
+   + ['免送驗','未送驗','送驗中','合格','不合格'].map(function(t){
+      return '<option '+(tmp.nm.test===t?'selected':'')+'>'+t+'</option>'; }).join('')
+   +'</select>'
+   +'<label class="f">檢試驗報告編號</label>'
+   +'<input class="i" id="nm_report" placeholder="送驗後回填" value="'+esc(tmp.nm.report||'')+'"'
+   + bind('nm','report')+'>'
+   +'<button class="btn" style="margin-top:20px" onclick="saveMaterial()">'
+   + (Net.ok?'☁️ 儲存並上傳':'💾 儲存至離線佇列')+'</button>'
+   +'<button class="btn ghost" onclick="tmp.nm=null;back()">取消</button>'
+   +'</div>';
+};
+function saveMaterial(){
+  grab('nm',{name:'nm_name',spec:'nm_spec',brand:'nm_brand',sup:'nm_sup',qty:'nm_qty',
+             unit:'nm_unit',sample:'nm_sample',std:'nm_std',stdMethod:'nm_method',
+             cert:'nm_cert',test:'nm_test',report:'nm_report'});
+  var name=(tmp.nm.name||'').trim();
+  if(!name){ toast('請填寫材料名稱'); return; }
+  if(!tmp.nm.photos.length){ toast('請至少上傳一張現場照片'); return; }
+  var payload={
+    project_id:S.project.project_id, check_date:today(),
+    material_name:name, spec:tmp.nm.spec||'', brand:tmp.nm.brand||'',
+    supplier:tmp.nm.sup||'', arrival_qty:tmp.nm.qty||'', unit:tmp.nm.unit||'式',
+    sample_qty:tmp.nm.sample||'', standard:tmp.nm.std||'', method:tmp.nm.stdMethod||'',
+    result:tmp.nm.result, cert_no:tmp.nm.cert||'', test_status:tmp.nm.test||'未送驗',
+    test_report_no:tmp.nm.report||'', inspector:Auth.user.name,
+    photos:tmp.nm.photos.map(function(p){
+      return {base64:p.base64, mimeType:p.mimeType, filename:p.filename}; }),
+    client_uuid:uuid()
+  };
+  if(payload.result==='不合格' && tmp.nm.ad!==false) payload.auto_defect=true;
+  submit('material.create', payload,
+    {type:'材料抽查', label:name, photos:payload.photos.length}, 'materials');
+}
+
+/* ---------------------- 施工抽查 ---------------------- */
+SCREENS.checks=function(p,c){
+  var h=bar('施工抽查紀錄', S.project.project_name,'',true);
+  if(c.stale) h+=staleBar(c.stale);
+  h+='<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div><button class="fab" onclick="go(\'checkNew\')">＋</button>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+  var list=c.data.items||[];
+  if(!list.length){
+    h+='<div class="empty"><div class="ic">🏗️</div>'
+      +'<div class="tt" style="margin-top:9px">尚無施工抽查紀錄</div></div>';
+  }else{
+    h+=list.map(function(x){
+      return '<button class="card" style="width:100%;border:0;padding:0;text-align:left;'
+       +'border-left:4px solid '+(x.result==='合格'?'var(--green)':'var(--amber)')+'" '
+       +'onclick="go(\'checkDetail\',{id:\''+x.check_id+'\'})"><div class="card-pad">'
+       +'<div class="row" style="gap:6px">'+resultTag(x.result)
+       +'<span class="tag t-gray">'+esc(x.check_date)+'</span>'
+       +(x.defect_id?'<span class="tag t-amber">已開缺失</span>':'')+'</div>'
+       +'<div class="tt" style="margin:9px 0 3px">'+esc(x.work_item)
+       + (x.sub_item?' — '+esc(x.sub_item):'')+'</div>'
+       +'<div class="st">📍 '+esc(x.location)+'</div>'
+       +'<div class="row" style="margin-top:10px;gap:6px">'
+       +'<span class="tag t-green">合格 '+esc(x.pass_count||0)+'</span>'
+       + (Number(x.fail_count)?'<span class="tag t-red">不合格 '+esc(x.fail_count)+'</span>':'')
+       + (Number(x.na_count)?'<span class="tag t-gray">不適用 '+esc(x.na_count)+'</span>':'')
+       +'<div class="grow xs" style="text-align:right">'+esc(x.inspector)+'</div></div>'
+       +'</div></button>';
+    }).join('');
+  }
+  return h+'</div><button class="fab" onclick="go(\'checkNew\')">＋</button>';
+};
+SCREENS.checks_load=function(p,c){
+  loadTo(c,'checks',function(){
+    return api('construction.list',{project_id:S.project.project_id,page_size:300});
+  });
+};
+
+SCREENS.checkDetail=function(p,c){
+  if(c.err) return bar('施工抽查')+'<div class="body">'+errBox(c.err)+'</div>';
+  if(!c.data) return bar('施工抽查')+'<div class="body">'+skeleton(2)+'</div>';
+  var x=c.data, list=x.checklist||jparse(x.checklist_json,[]), ph=jparse(x.photo_urls,[]);
+  return bar(x.check_no, x.work_item+(x.sub_item?' — '+x.sub_item:''))
+   +'<div class="body"><div class="card"><div class="card-pad">'
+   +'<div class="row" style="gap:6px;margin-bottom:11px">'+resultTag(x.result)
+   +'<span class="tag t-gray">'+esc(x.check_date)+'</span></div>'
+   + kv('檢查位置',x.location)+kv('抽查人員',x.inspector)+kv('廠商會同人員',x.contractor_rep)
+   + (x.findings?kv('抽查發現',x.findings):'')
+   +'</div></div>'
+   +'<div class="sect">檢查項目（'+list.length+' 項）</div><div class="card">'
+   + list.map(function(i,n){
+      return '<div style="padding:12px 14px;border-bottom:1px solid var(--line)">'
+       +'<div class="row" style="align-items:flex-start"><div class="grow">'
+       +'<div class="tt" style="font-size:13.5px">'+(n+1)+'. '+esc(i.item)+'</div>'
+       + (i.standard?'<div class="xs" style="margin-top:3px">標準：'+esc(i.standard)+'</div>':'')
+       + (i.method?'<div class="xs">方式：'+esc(i.method)+'</div>':'')
+       + (i.note?'<div class="st" style="color:var(--red);margin-top:3px">⚠ '+esc(i.note)+'</div>':'')
+       +'</div>'+resultTag(i.result)+'</div></div>';
+     }).join('')
+   +'</div>'
+   + (ph.length? '<div class="sect">現場照片</div><div class="grid2">'
+      + ph.map(function(u){ return '<img src="'+esc(u)+'" class="thumb" style="border-radius:11px" alt="">'; }).join('')
+      +'</div>':'')
+   + (x.inspector_sign? '<div class="sect">抽查人員簽名</div><div class="card"><div class="card-pad">'
+      +'<img src="'+esc(x.inspector_sign)+'" style="width:100%;max-height:120px;object-fit:contain" alt="">'
+      +'</div></div>':'')
+   +'</div>';
+};
+SCREENS.checkDetail_load=function(p,c){
+  loadTo(c,null,function(){
+    return api('construction.list',{project_id:S.project.project_id,page_size:500}).then(function(d){
+      var x=(d.items||[]).filter(function(v){ return v.check_id===p.id; })[0];
+      if(!x) throw new Error('找不到這筆紀錄');
+      return x;
+    });
+  });
+};
+
+SCREENS.checkNew=function(p,c){
+  tmp.nc=tmp.nc||{photos:[],list:null,work:''};
+  var h=bar('新增施工抽查', S.project.project_name)+'<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div>';
+  if(!c.data) return h+'<div class="sk" style="height:52px"></div>'
+    +'<div class="sk" style="height:120px;margin-top:14px"></div></div>';
+
+  var works=c.data.work_items||[];
+  h+='<label class="f">分項工程名稱<span class="req">*</span></label>'
+   +'<select class="i" onchange="pickWork(this.value)"><option value="">— 請選擇 —</option>'
+   + works.map(function(w){
+      return '<option '+(tmp.nc.work===w.work_item?'selected':'')+' value="'+esc(w.work_item)+'">'
+       + esc(w.work_item)+'（'+w.count+' 項）</option>';
+     }).join('')+'</select>';
+
+  if(!works.length){
+    return h+'<div class="card" style="border-left:4px solid var(--amber);margin-top:14px">'
+     +'<div class="card-pad"><div class="tt" style="font-size:14px">尚未導入監造計畫書</div>'
+     +'<div class="st" style="margin-top:5px">施工抽查的檢查項目來自計畫書的「分項工程管理標準」。'
+     +'請先到設定導入，之後現場選分項就會自動帶出查驗標準與抽查方式。</div>'
+     +'<button class="btn ghost sm" style="width:100%;margin-top:11px" onclick="go(\'specList\')">'
+     +'前往導入</button></div></div></div>';
+  }
+
+  h+='<div class="hint">🔵 檢查項目、查驗標準、抽查方式皆來自監造計畫書標準庫</div>';
+  if(!tmp.nc.work) return h+'</div>';
+
+  var L=tmp.nc.list||[];
+  var ok=L.filter(function(i){return i.result==='合格';}).length;
+  var ng=L.filter(function(i){return i.result==='不合格';}).length;
+  var na=L.filter(function(i){return i.result==='不適用';}).length;
+  var done=ok+ng+na;
+
+  h+='<label class="f">細項</label><input class="i" id="nc_sub" placeholder="例：梁鋼筋綁紮" value="'
+   + esc(tmp.nc.sub||'')+'"'+bind('nc','sub')+'>'
+   +'<label class="f">檢查位置<span class="req">*</span></label>'
+   +'<input class="i" id="nc_loc" placeholder="例：3F 梁 B3-B5 通" value="'+esc(tmp.nc.loc||'')+'"'
+   + bind('nc','loc')+'>'
+   +'<div class="sect">檢查項目清單 <span class="tag '+(done===L.length?'t-green':'t-amber')+'">'
+   + done+'/'+L.length+' 已勾選</span></div>'
+   + (c.data.source? '<div class="xs" style="margin:-2px 2px 10px">📘 來源：'+esc(c.data.source)+'</div>':'')
+   + L.map(function(i,idx){
+      return '<div class="card"><div class="card-pad">'
+       +'<div class="row" style="align-items:flex-start;gap:7px">'
+       +'<div class="tt grow" style="font-size:13.5px">'+(idx+1)+'. '+esc(i.item)+'</div>'
+       + (i.hold?'<span class="tag t-red">🛑 '+esc(i.hold)+'</span>':'')+'</div>'
+       +'<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;margin:7px 0 9px">'
+       + (i.standard?'<div class="xs" style="line-height:1.65"><b>查驗標準　</b>'+esc(i.standard)+'</div>':'')
+       + (i.method?'<div class="xs" style="line-height:1.65"><b>抽查方式　</b>'+esc(i.method)
+          + (i.frequency?'<span style="color:var(--ink-3)">　·　'+esc(i.frequency)+'</span>':'')+'</div>':'')
+       +'</div><div class="seg">'
+       + ['合格','不合格','不適用'].map(function(r){
+          var cls=r==='合格'?'ok':r==='不合格'?'ng':'na';
+          return '<button class="'+(i.result===r?'on '+cls:'')+'" onclick="setChk('+idx+',\''+r+'\')">'
+           +r+'</button>';
+         }).join('')+'</div>'
+       + (i.result==='不合格'
+          ? '<input class="i" style="margin-top:9px" placeholder="說明不合格情形" value="'+esc(i.note||'')
+            +'" oninput="tmp.nc.list['+idx+'].note=this.value">' : '')
+       +'</div></div>';
+     }).join('')
+   +'<div class="card" style="background:var(--navy-3)"><div class="card-pad">'
+   +'<div class="row" style="gap:6px"><span class="tag t-green">合格 '+ok+'</span>'
+   +'<span class="tag t-red">不合格 '+ng+'</span><span class="tag t-gray">不適用 '+na+'</span></div>'
+   +'<div class="st" style="margin-top:9px">綜合判定：<b>'
+   + (ng>0?'限期改善': done<L.length?'尚未完成勾選':'合格')+'</b></div></div></div>'
+   + (ng>0? '<div class="card" style="border-left:4px solid var(--red)"><div class="card-pad row">'
+      +'<span style="font-size:20px">⚠️</span><div class="grow">'
+      +'<div class="tt" style="font-size:14px">同步開立缺失單</div>'
+      +'<div class="xs">自動帶入 '+ng+' 項不合格內容</div></div>'
+      +'<input type="checkbox" '+(tmp.nc.ad!==false?'checked':'')
+      +' onchange="tmp.nc.ad=this.checked"></div></div>' : '')
+   +'<label class="f">抽查發現 / 綜合意見</label>'
+   +'<textarea class="i" id="nc_find" placeholder="補充說明…"'+bind('nc','find')+'>'
+   + esc(tmp.nc.find||'')+'</textarea>'
+   +'<label class="f">現場照片</label><div class="grid2">'
+   + tmp.nc.photos.map(function(ph,i){
+      return '<div class="phwrap"><img src="'+ph.dataUrl+'" class="thumb" style="border-radius:11px" alt="">'
+       +'<button class="del" onclick="tmp.nc.photos.splice('+i+',1);render()">✕</button></div>';
+     }).join('')
+   +'<button class="addph" onclick="pickInto(\'nc\',\'cam\')"><span class="ic">📷</span>'
+   +'<span>拍照</span></button></div>'
+   +'<label class="f">廠商會同人員</label>'
+   +'<input class="i" id="nc_rep" placeholder="例：王工地主任" value="'+esc(tmp.nc.rep||'')+'"'
+   + bind('nc','rep')+'>'
+   +'<label class="f">抽查人員簽名<span class="req">*</span></label>'
+   + (tmp.nc.sign
+      ? '<div class="phwrap"><img src="'+tmp.nc.sign+'" style="width:100%;height:150px;'
+        +'object-fit:contain;border:1.5px solid var(--navy);border-radius:11px;background:#fff" alt="">'
+        +'<button class="del" onclick="tmp.nc.sign=null;render()">✕</button></div>'
+      : '<canvas class="sig" id="sig"></canvas>'
+        +'<div class="row" style="margin-top:8px;gap:8px">'
+        +'<button class="btn ghost sm" style="flex:1" onclick="clearSig()">清除</button>'
+        +'<button class="btn sm" style="flex:1" onclick="saveSig()">確認簽名</button></div>')
+   +'<button class="btn" style="margin-top:20px" onclick="saveCheck()">'
+   + (Net.ok?'☁️ 儲存並上傳':'💾 儲存至離線佇列')+'</button>'
+   +'<button class="btn ghost" onclick="tmp.nc=null;back()">取消</button>';
+  return h+'</div>';
+};
+SCREENS.checkNew_load=function(p,c){
+  loadTo(c,'works',function(){
+    return api('checklist.template',{project_id:S.project.project_id});
+  }).then(function(d){ if(d) S.standards=d; setTimeout(initSig,60); });
+};
+function pickWork(w){
+  tmp.nc.work=w; tmp.nc.list=null;
+  if(!w){ render(); return; }
+  busy(true,'載入檢查項目…');
+  api('checklist.template',{project_id:S.project.project_id, work_item:w}).then(function(d){
+    busy(false);
+    tmp.nc.list=(d.checklist||[]).map(function(i){
+      return {no:i.no, item:i.item, standard:i.standard, method:i.method,
+              frequency:i.frequency, hold:i.hold, result:'', note:''};
+    });
+    render();
+    setTimeout(initSig,60);
+  }).catch(function(e){ busy(false); toast('載入失敗：'+e.message); });
+}
+function setChk(i,r){ tmp.nc.list[i].result=r; render(); setTimeout(initSig,60); }
+
+/* ---- 手寫簽名（canvas） ---- */
+var sigCtx=null, sigDrawn=false;
+function initSig(){
+  var cv=$('sig'); if(!cv) return;
+  var dpr=window.devicePixelRatio||1;
+  var w=cv.clientWidth, h=cv.clientHeight;
+  if(!w) return;
+  cv.width=w*dpr; cv.height=h*dpr;
+  sigCtx=cv.getContext('2d');
+  sigCtx.scale(dpr,dpr);
+  sigCtx.lineWidth=2.6; sigCtx.lineCap='round'; sigCtx.lineJoin='round';
+  sigCtx.strokeStyle='#0f172a';
+  sigCtx.fillStyle='#fff'; sigCtx.fillRect(0,0,w,h);
+  sigDrawn=false;
+  var drawing=false;
+  function pos(e){
+    var r=cv.getBoundingClientRect();
+    var t=e.touches? e.touches[0] : e;
+    return {x:t.clientX-r.left, y:t.clientY-r.top};
+  }
+  function start(e){ e.preventDefault(); drawing=true; sigDrawn=true;
+    var p=pos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); }
+  function move(e){ if(!drawing) return; e.preventDefault();
+    var p=pos(e); sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); }
+  function end(){ drawing=false; }
+  cv.onmousedown=start; cv.onmousemove=move;
+  window.addEventListener('mouseup',end);
+  cv.ontouchstart=start; cv.ontouchmove=move; cv.ontouchend=end;
+}
+function clearSig(){ initSig(); }
+function saveSig(){
+  if(!sigDrawn){ toast('請先簽名'); return; }
+  tmp.nc.sign=$('sig').toDataURL('image/png');
+  render();
+}
+function saveCheck(){
+  grab('nc',{sub:'nc_sub',loc:'nc_loc',find:'nc_find',rep:'nc_rep'});
+  var loc=(tmp.nc.loc||'').trim();
+  if(!loc){ toast('請填寫檢查位置'); return; }
+  var L=tmp.nc.list||[];
+  if(L.some(function(i){ return !i.result; })){ toast('尚有檢查項目未勾選'); return; }
+  if(!tmp.nc.sign){ toast('請完成抽查人員簽名'); return; }
+  var payload={
+    project_id:S.project.project_id, check_date:today(),
+    work_item:tmp.nc.work, sub_item:tmp.nc.sub||'', location:loc,
+    checklist:L.map(function(i){
+      return {no:i.no, item:i.item, standard:i.standard, method:i.method,
+              frequency:i.frequency, hold:i.hold, result:i.result, note:i.note||''};
+    }),
+    findings:tmp.nc.find||'', inspector:Auth.user.name, contractor_rep:tmp.nc.rep||'',
+    photos:tmp.nc.photos.map(function(p){
+      return {base64:p.base64, mimeType:p.mimeType, filename:p.filename}; }),
+    sign_image:{base64:tmp.nc.sign.split(',')[1], mimeType:'image/png',
+                filename:'sign_'+Date.now()+'.png'},
+    client_uuid:uuid()
+  };
+  if(L.some(function(i){ return i.result==='不合格'; }) && tmp.nc.ad!==false) payload.auto_defect=true;
+  submit('construction.create', payload,
+    {type:'施工抽查', label:tmp.nc.work+' / '+loc, photos:payload.photos.length}, 'checks');
+}
+
+/* ---------------------- 離線同步 ---------------------- */
+SCREENS.sync=function(p,c){
+  var h=bar('離線暫存與同步', Net.ok?'目前線上':'目前離線')+'<div class="body">';
+  h+='<div class="card"><div class="card-pad row">'
+   +'<span style="font-size:29px">'+(Net.ok?'📶':'✈️')+'</span>'
+   +'<div class="grow"><div class="tt">'+(Net.ok?'已連線':'離線模式')+'</div>'
+   +'<div class="st">'+(Net.ok?'新資料直接寫入 Google':'新資料暫存於本機 IndexedDB')+'</div></div>'
+   +'</div></div>';
+  var list=c.data;
+  if(!list) return h+skeleton(2)+'</div>';
+  h+='<div class="sect">待同步佇列（'+list.length+'）</div>';
+  if(!list.length){
+    h+='<div class="empty"><div class="ic">✓</div>'
+      +'<div class="tt" style="margin-top:9px">沒有待同步的資料</div>'
+      +'<div class="st" style="margin-top:5px">所有紀錄都已上傳</div></div>';
+  }else{
+    h+='<div class="card">'+list.map(function(q){
+      return '<div class="li" style="cursor:default"><span style="font-size:22px">'
+       + (q.type==='查驗照片'?'📷':q.type==='材料抽查'?'📦':q.type==='施工抽查'?'🏗️':'⚠️')+'</span>'
+       +'<div class="grow"><div class="tt" style="font-size:14px">'+esc(q.type)+'</div>'
+       +'<div class="st">'+esc(q.label)+'</div>'
+       +'<div class="xs">'+new Date(q.createdAt).toLocaleString('zh-TW')
+       + (q.photos?'　·　'+q.photos+' 張照片':'')+'</div>'
+       + (q.error?'<div class="xs" style="color:var(--red);margin-top:3px">'
+          +'重試 '+q.tries+' 次：'+esc(q.error)+'</div>':'')
+       +'</div><span class="tag '+(q.error?'t-red':'t-amber')+'">'+(q.error?'失敗':'待送')+'</span></div>';
+     }).join('')+'</div>'
+     +'<button class="btn'+(Net.ok?'':' ghost')+'" style="margin-top:10px" '
+     + (Net.ok?'onclick="doSync()"':'disabled')+'>📤 一鍵同步全部（'+list.length+' 筆）</button>'
+     + (Net.ok?'':'<div class="hint" style="text-align:center">目前離線，恢復連線後才能同步</div>');
+  }
+  return h+'</div>';
+};
+SCREENS.sync_load=function(p,c){
+  Queue.list().then(function(a){ if(cur()===c){ c.data=a; S.qcount=a.length; render(false); } });
+};
+function doSync(){
+  busy(true,'同步中…');
+  Queue.sync(function(done,total){ busy(true,'同步中… '+done+'/'+total); })
+    .then(function(r){
+      busy(false);
+      if(r.fail) toast('完成 '+r.ok+' 筆，'+r.fail+' 筆失敗，請查看錯誤訊息',4000);
+      else if(r.ok) toast('✓ 已同步 '+r.ok+' 筆');
+      else toast('沒有可同步的資料');
+      refreshBadges();
+      reload();
+    });
+}
+
+/* ---------------------- 匯出報表 ---------------------- */
+SCREENS.report=function(p,c){
+  tmp.rp=tmp.rp||{type:p.type||'查驗照片表', from:addDays(today(),-30), to:today(), per:2};
+  var h=bar('匯出報表', S.project.project_name)+'<div class="body">';
+  h+='<label class="f">報表類型</label><select class="i" onchange="tmp.rp.type=this.value;reload()">'
+   + ['查驗照片表','缺失改善表','材料抽查表','施工抽查表'].map(function(t){
+      return '<option '+(tmp.rp.type===t?'selected':'')+'>'+t+'</option>'; }).join('')
+   +'</select>';
+
+  if(!c.data) h+='<div class="sk" style="height:60px;margin-top:14px"></div>';
+  else{
+    var tpls=(c.data.items||[]).filter(function(t){ return t.type===tmp.rp.type; });
+    if(!tpls.length){
+      h+='<div class="card" style="border-left:4px solid var(--amber);margin-top:14px">'
+       +'<div class="card-pad"><div class="tt" style="font-size:14px">尚未上傳此類報表的範本</div>'
+       +'<div class="st" style="margin-top:5px">請先在設定上傳事務所的 Word 範本，'
+       +'系統才知道要套用什麼版面。</div>'
+       +'<button class="btn ghost sm" style="width:100%;margin-top:11px" onclick="go(\'tplList\')">'
+       +'前往上傳範本</button></div></div>';
+    }else{
+      h+='<label class="f">套用範本</label><select class="i" id="rp_tpl">'
+       + tpls.map(function(t){
+          return '<option value="'+t.template_id+'">'+esc(t.name)
+           + (String(t.is_default).toUpperCase()==='TRUE'?'（預設）':'')+'</option>'; }).join('')
+       +'</select>'
+       +'<label class="f">日期範圍</label><div class="two">'
+       +'<input class="i" type="date" id="rp_from" value="'+tmp.rp.from+'"'+bind('rp','from')+'>'
+       +'<input class="i" type="date" id="rp_to" value="'+tmp.rp.to+'"'+bind('rp','to')+'></div>'
+       + (tmp.rp.type==='查驗照片表'
+          ? '<label class="f">每頁張數</label><div class="seg">'
+            + [2,4].map(function(n){
+              return '<button class="'+(tmp.rp.per===n?'on':'')+'" '
+               +'onclick="tmp.rp.per='+n+';render()">'+n+' 張／頁</button>'; }).join('')+'</div>'
+          : '')
+       +'<button class="btn" style="margin-top:20px" onclick="doReport()" '
+       + (Net.ok?'':'disabled')+'>🖨️ 產生 PDF</button>'
+       + (Net.ok?'':'<div class="hint" style="text-align:center">匯出需要連線</div>')
+       +'<div class="card" style="margin-top:16px;background:var(--blue-bg);border:1px solid #bae6fd">'
+       +'<div class="card-pad st" style="color:var(--blue);line-height:1.8">'
+       +'PDF 會存到該專案 Drive 的「95_匯出報表」資料夾，並回傳連結。'
+       +'版面完全依照事務所上傳的 Word 範本，字型、框線、頁首頁尾都保留。</div></div>';
+    }
+  }
+  return h+'</div>';
+};
+SCREENS.report_load=function(p,c){
+  loadTo(c,null,function(){ return api('template.list',{project_id:S.project.project_id}); });
+};
+function doReport(){
+  busy(true,'產生報表中，請稍候…');
+  api('report.generate',{
+    project_id:S.project.project_id, type:tmp.rp.type,
+    template_id:$('rp_tpl').value,
+    date_from:$('rp_from').value, date_to:$('rp_to').value,
+    per_page:tmp.rp.per
+  }).then(function(d){
+    busy(false);
+    toast('✓ 已產生 '+d.count+' 筆／'+(d.pages||1)+' 頁');
+    window.open(d.url,'_blank','noopener');
+  }).catch(function(e){
+    busy(false); toast('匯出失敗：'+e.message, 4500);
+  });
+}
+
+/* ---------------------- 設定 ---------------------- */
+SCREENS.settings=function(){
+  return bar('設定與管理', S.project? S.project.project_name : '')
+   +'<div class="body">'
+   +'<div class="sect">專案</div><div class="card">'
+   + srow('🏢','工程專案管理','切換或新增專案','projects')
+   +'</div>'
+   +'<div class="sect">文件與範本</div><div class="card">'
+   + srow('📄','報表範本管理','上傳 Word 範本，匯出時自動套用','tplList')
+   + srow('📘','監造計畫書標準庫','導入分項工程管理標準','specList')
+   +'</div>'
+   +'<div class="sect">外部連動</div><div class="card">'
+   + srow('🔗','Notion 專案管理連動','推送資料到 Notion 看板','notion')
+   + srow('🔄','離線暫存與同步','目前佇列 '+S.qcount+' 筆','sync')
+   +'</div>'
+   +'<div class="sect">帳號</div><div class="card"><div class="card-pad row">'
+   +'<div style="width:42px;height:42px;border-radius:50%;background:var(--navy);color:#fff;'
+   +'display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800">'
+   + esc((Auth.user&&Auth.user.name||'?').charAt(0))+'</div>'
+   +'<div class="grow"><div class="tt" style="font-size:14px">'+esc(Auth.user&&Auth.user.name)+'</div>'
+   +'<div class="xs">'+esc(Auth.user&&Auth.user.email)+'</div></div></div></div>'
+   +'<button class="btn ghost" onclick="Auth.signOut()">登出</button>'
+   +'<div class="xs" style="text-align:center;margin-top:18px">'
+   + esc(CFG.ORG_NAME||'')+'　監造品質管理系統 v'+esc(CFG.VERSION||'')+'</div>'
+   +'</div>';
+};
+function srow(ic,t,s,to){
+  return '<button class="li" onclick="go(\''+to+'\')"><span style="font-size:22px">'+ic+'</span>'
+   +'<div class="grow"><div class="tt" style="font-size:14px">'+t+'</div>'
+   +'<div class="st">'+esc(s)+'</div></div><span class="chev">›</span></button>';
+}
+
+/* ---------------------- 新增專案 ---------------------- */
+SCREENS.projectNew=function(){
+  tmp.pn=tmp.pn||{};
+  return bar('新增工程專案','建立後將自動產生 Drive 資料夾')
+   +'<div class="body">'
+   +'<div class="sect">基本資料</div>'
+   +'<label class="f">專案代碼<span class="req">*</span></label>'
+   +'<input class="i auto" id="pn_code" maxlength="8" value="'+esc(tmp.pn.code||'')+'" '
+   +'placeholder="例：A003">'
+   +'<div class="hint">🔵 所有編號的前綴（DF-A003-202608-001），<b>建立後不可修改</b></div>'
+   +'<label class="f">專案名稱（簡稱）<span class="req">*</span></label>'
+   +'<input class="i" id="pn_name" placeholder="例：信義路辦公大樓">'
+   +'<label class="f">工程名稱（契約全銜）<span class="req">*</span></label>'
+   +'<textarea class="i" id="pn_work" style="min-height:64px" '
+   +'placeholder="例：臺北市信義區○○段辦公大樓新建工程"></textarea>'
+   +'<div class="hint">🔵 會直接印在所有報表表頭，請與契約一致</div>'
+   +'<label class="f">契約編號</label><input class="i" id="pn_contract" placeholder="例：115-建-012">'
+   +'<label class="f">工地地點</label><input class="i" id="pn_addr">'
+   +'<div class="sect">相關單位</div>'
+   +'<label class="f">業主 / 起造機關<span class="req">*</span></label>'
+   +'<input class="i" id="pn_owner" placeholder="例：臺北市政府工務局">'
+   +'<label class="f">監造單位</label>'
+   +'<input class="i auto" id="pn_sup" value="'+esc(CFG.ORG_NAME||'')+'">'
+   +'<label class="f">設計單位</label>'
+   +'<input class="i auto" id="pn_design" value="'+esc(CFG.ORG_NAME||'')+'">'
+   +'<label class="f">承攬廠商<span class="req">*</span></label>'
+   +'<input class="i" id="pn_ctr" placeholder="例：○○營造股份有限公司">'
+   +'<div class="hint">🔵 開立缺失時的「責任廠商」會自動帶這一欄</div>'
+   +'<div class="sect">工期</div><div class="two">'
+   +'<div><label class="f">開工日期<span class="req">*</span></label>'
+   +'<input class="i" type="date" id="pn_s" value="'+today()+'" onchange="calcDur()"></div>'
+   +'<div><label class="f">預定竣工<span class="req">*</span></label>'
+   +'<input class="i" type="date" id="pn_e" value="'+addDays(today(),365)+'" onchange="calcDur()"></div></div>'
+   +'<label class="f">契約工期（日曆天）</label>'
+   +'<input class="i auto" id="pn_d" value="366" readonly>'
+   +'<div class="hint">🔵 由開工／竣工日期自動計算</div>'
+   +'<div class="sect">監造人員</div>'
+   +'<label class="f">主任監造人員</label><input class="i" id="pn_chief" placeholder="例：陳○○ 建築師">'
+   +'<label class="f">品管 / 監造人員</label>'
+   +'<input class="i auto" id="pn_qc" value="'+esc(Auth.user&&Auth.user.name||'')+'">'
+   +'<button class="btn" style="margin-top:22px" onclick="saveProject()" '
+   + (Net.ok?'':'disabled')+'>☁️ 建立專案</button>'
+   + (Net.ok?'':'<div class="hint" style="text-align:center">建立專案需要連線（要在 Drive 開資料夾）</div>')
+   +'<button class="btn ghost" onclick="back()">取消</button>'
+   +'</div>';
+};
+function calcDur(){
+  var s=$('pn_s').value, e=$('pn_e').value;
+  if(!s||!e) return;
+  var d=Math.round((new Date(e)-new Date(s))/86400000)+1;
+  $('pn_d').value = d>0?d:0;
+}
+function saveProject(){
+  var code=($('pn_code').value||'').trim().toUpperCase();
+  var name=($('pn_name').value||'').trim();
+  var work=($('pn_work').value||'').trim();
+  if(!code||!name||!work){ toast('請填寫專案代碼、專案名稱與工程名稱'); return; }
+  busy(true,'建立中，同時開設 Drive 資料夾…');
+  api('project.create',{
+    project_code:code, project_name:name, work_name:work,
+    contract_no:$('pn_contract').value, site_address:$('pn_addr').value,
+    owner_org:$('pn_owner').value, supervisor_org:$('pn_sup').value,
+    designer_org:$('pn_design').value, contractor:$('pn_ctr').value,
+    start_date:$('pn_s').value, due_date:$('pn_e').value, duration_days:$('pn_d').value,
+    supervisor_name:$('pn_chief').value, qc_name:$('pn_qc').value
+  }).then(function(){
+    busy(false); tmp.pn=null;
+    toast('✓ 專案已建立，Drive 資料夾已產生');
+    reset('projects');
+  }).catch(function(e){ busy(false); toast('建立失敗：'+e.message,4000); });
+}
+
+/* ---------------------- 監造計畫書標準庫 ---------------------- */
+SCREENS.specList=function(p,c){
+  var h=bar('分項工程管理標準庫', S.project.project_name)+'<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+  var d=c.data, ws=d.work_items||[];
+  if(d.source_file){
+    h+='<div class="card" style="background:var(--blue-bg);border:1px solid #bae6fd">'
+     +'<div class="card-pad row"><span style="font-size:25px">📘</span>'
+     +'<div class="grow"><div class="tt" style="font-size:14px">目前來源</div>'
+     +'<div class="st">'+esc(d.source_file)+'</div>'
+     +'<div class="xs" style="margin-top:2px">'+esc(d.imported_at||'')+' 導入</div></div></div></div>';
+  }
+  if(!ws.length){
+    h+='<div class="empty"><div class="ic">📘</div>'
+      +'<div class="tt" style="margin-top:9px">尚未導入監造計畫書</div>'
+      +'<div class="st" style="margin-top:5px;line-height:1.7">導入後，施工抽查的檢查項目、'
+      +'查驗標準、抽查方式都會自動帶出<br>現場一個字都不用打</div></div>';
+  }else{
+    h+=ws.map(function(w){
+      return '<button class="card" style="width:100%;border:0;padding:0;text-align:left" '
+       +'onclick="go(\'specDetail\',{w:\''+encodeURIComponent(w.work_item)+'\'})">'
+       +'<div class="card-pad row"><div class="grow">'
+       +'<div class="tt">'+esc(w.work_item)+'</div>'
+       +'<div class="st" style="margin-top:3px">'+w.count+' 條管理標準'
+       + (w.hold?'　·　'+w.hold+' 個查驗停留點':'')+'</div></div>'
+       +'<span class="chev">›</span></div></button>';
+    }).join('');
+  }
+  return h+'<button class="btn" style="margin-top:6px" onclick="tmp.si={step:1};go(\'specImport\')">'
+   +'📘 導入監造計畫書</button></div>';
+};
+SCREENS.specList_load=function(p,c){
+  loadTo(c,'spec',function(){ return api('spec.list',{project_id:S.project.project_id}); });
+};
+
+SCREENS.specDetail=function(p,c){
+  var w=decodeURIComponent(p.w);
+  var h=bar(w,'管理標準')+'<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+  return h+(c.data.items||[]).map(function(x,i){
+    return '<div class="card"><div class="card-pad">'
+     +'<div class="row" style="align-items:flex-start;gap:7px">'
+     +'<div class="tt grow" style="font-size:14px">'+(i+1)+'. '+esc(x.check_item)+'</div>'
+     + (x.hold_point?'<span class="tag t-red">🛑 '+esc(x.hold_point)+'</span>':'')+'</div>'
+     +'<div style="background:#f8fafc;border-radius:9px;padding:10px 11px;margin-top:9px">'
+     +'<div class="st" style="line-height:1.75"><b style="color:var(--ink-2)">查驗標準　</b>'
+     + esc(x.check_standard)+'</div>'
+     +'<div class="st" style="line-height:1.75"><b style="color:var(--ink-2)">抽查方式　</b>'
+     + esc(x.check_method)+'</div>'
+     +'<div class="st" style="line-height:1.75"><b style="color:var(--ink-2)">檢驗頻率　</b>'
+     + esc(x.frequency)+'</div></div></div></div>';
+  }).join('')+'</div>';
+};
+SCREENS.specDetail_load=function(p,c){
+  loadTo(c,null,function(){
+    return api('spec.list',{project_id:S.project.project_id, work_item:decodeURIComponent(p.w)});
+  });
+};
+
+SCREENS.specImport=function(p,c){
+  tmp.si=tmp.si||{step:1};
+  var s=tmp.si.step;
+  var head='<div class="row" style="gap:5px;padding:12px 14px;background:#fff;'
+   +'border-bottom:1px solid var(--line)">'
+   + [1,2,3].map(function(i){
+      return '<div style="flex:1;height:5px;border-radius:9px;background:'
+       +(i<=s?'var(--navy)':'var(--line)')+'"></div>'; }).join('')+'</div>';
+  return bar('導入監造計畫書','步驟 '+s+' / 3')+head
+   +'<div class="body">'+[siS1,siS2,siS3][s-1]()+'</div>';
+};
+function siS1(){
+  return '<div class="sect">上傳監造計畫書</div>'
+   +'<button class="addph" style="aspect-ratio:auto;padding:28px 16px;margin-bottom:10px" '
+   +'onclick="siUpload()"><span class="ic">📄</span><span>選擇 .docx 或 .pdf</span>'
+   +'<span class="xs">Word 版解析最準確；PDF 掃描檔會先做 OCR</span></button>'
+   +'<div class="sect">系統會抓什麼</div>'
+   +'<div class="card"><div class="card-pad st" style="line-height:1.9">'
+   +'自動尋找標題含<b>「分項工程品質管理標準」</b>、<b>「施工品質管理標準表」</b>或'
+   +'<b>「查驗停留點」</b>的表格，逐列抽出五個欄位：<br><br>'
+   +'<span class="tag t-blue">分項工程</span> <span class="tag t-blue">查驗項目</span> '
+   +'<span class="tag t-blue">查驗標準</span> <span class="tag t-blue">抽查方式</span> '
+   +'<span class="tag t-blue">檢驗頻率</span></div></div>'
+   +'<div class="card" style="background:var(--amber-bg);border:1px solid #fde68a">'
+   +'<div class="card-pad st" style="color:#78350f;line-height:1.8">'
+   +'<b>解析不是黑箱</b><br>抽出來的每一列都會列在下一步讓你逐項確認、修改或取消勾選。'
+   +'計畫書格式再怎麼特殊，最壞情況只是多改幾列，不會把錯的內容直接寫進系統。</div></div>';
+}
+function siUpload(){
+  if(!Net.ok){ toast('導入計畫書需要連線'); return; }
+  Img.pickDoc().then(function(f){
+    if(!f) return;
+    busy(true,'解析中，大型計畫書可能需要 30 秒…');
+    api('spec.parse',{project_id:S.project.project_id, file:f}).then(function(d){
+      busy(false);
+      tmp.si={step:2, parsed:d, sel:{}};
+      (d.groups||[]).forEach(function(g){
+        g.items.forEach(function(it,i){ tmp.si.sel[g.work_item+'|'+i]=true; });
+      });
+      render();
+    }).catch(function(e){ busy(false); toast('解析失敗：'+e.message,4500); });
+  });
+}
+function siS2(){
+  var d=tmp.si.parsed||{}, gs=d.groups||[];
+  var total=0, picked=0;
+  gs.forEach(function(g){ g.items.forEach(function(it,i){
+    total++; if(tmp.si.sel[g.work_item+'|'+i]) picked++; }); });
+
+  return '<div class="card" style="background:var(--green-bg);border:1px solid #bbf7d0">'
+   +'<div class="card-pad row"><span style="font-size:25px">✓</span>'
+   +'<div class="grow"><div class="tt" style="font-size:14px">解析完成</div>'
+   +'<div class="st">'+esc(d.source_file||'')+'</div>'
+   +'<div class="xs" style="margin-top:2px">'+esc(d.parsed_by||'')+'　·　'
+   + gs.length+' 個分項工程　'+total+' 條管理標準</div></div></div></div>'
+   + (d.low_confidence
+      ? '<div class="card" style="border-left:4px solid var(--amber)"><div class="card-pad">'
+        +'<div class="tt" style="font-size:14px">⚠️ 表格結構未能完整辨識</div>'
+        +'<div class="st" style="margin-top:4px">這份檔案（多為掃描版 PDF）已改用逐行推測，'
+        +'準確度較低，請務必逐項核對後再匯入。</div></div></div>' : '')
+   +'<div class="sect">逐項確認 <span class="tag '+(picked===total?'t-green':'t-amber')+'">'
+   + picked+'/'+total+' 已勾選</span></div>'
+   + gs.map(function(g){
+      return '<div class="sect" style="margin-top:14px">'+esc(g.work_item)
+       + (g.is_new?' <span class="tag t-blue">新分項</span>':' <span class="tag t-gray">已存在</span>')
+       +'</div>'
+       + g.items.map(function(x,i){
+          var key=g.work_item+'|'+i, on=tmp.si.sel[key];
+          return '<div class="card" style="'+(on?'':'opacity:.5')+'"><div class="card-pad">'
+           +'<div class="row" style="align-items:flex-start;gap:9px">'
+           +'<input type="checkbox" '+(on?'checked':'')+' style="margin-top:2px" '
+           +'onchange="tmp.si.sel[\''+key.replace(/'/g,"\\'")+'\']=this.checked;render()">'
+           +'<div class="grow"><div class="tt" style="font-size:13.5px">'+esc(x.check_item)+'</div>'
+           +'<div class="xs" style="margin-top:5px;line-height:1.7">'
+           +'<b>查驗標準　</b>'+esc(x.check_standard||'—')+'<br>'
+           +'<b>抽查方式　</b>'+esc(x.check_method||'—')
+           + (x.frequency?'　<span style="color:var(--ink-3)">·　'+esc(x.frequency)+'</span>':'')
+           +'</div></div>'
+           + (x.hold_point?'<span class="tag t-red">🛑</span>':'')+'</div></div></div>';
+         }).join('');
+     }).join('')
+   +'<div class="card" style="background:var(--amber-bg);border:1px solid #fde68a">'
+   +'<div class="card-pad st" style="color:#78350f;line-height:1.8">'
+   +'實務上計畫書常有<b>本案不會施作的分項</b>（例如沒有鋼構卻抄了鋼構標準），'
+   +'在這裡濾掉，現場選單才不會又臭又長。</div></div>'
+   +'<button class="btn" onclick="tmp.si.step=3;render()" '+(picked?'':'disabled')+'>'
+   +'下一步：確認導入（'+picked+' 條）</button>'
+   +'<button class="btn ghost" onclick="tmp.si={step:1};render()">‹ 重新上傳</button>';
+}
+function siS3(){
+  var d=tmp.si.parsed||{}, gs=d.groups||[], picked=0;
+  gs.forEach(function(g){ g.items.forEach(function(it,i){
+    if(tmp.si.sel[g.work_item+'|'+i]) picked++; }); });
+  if(tmp.si.mode===undefined) tmp.si.mode='append';
+  return '<div class="sect">導入設定</div>'
+   +'<label class="f">既有分項工程處理方式</label><div class="seg">'
+   +'<button class="'+(tmp.si.mode==='append'?'on':'')+'" '
+   +'onclick="tmp.si.mode=\'append\';render()">保留不動</button>'
+   +'<button class="'+(tmp.si.mode==='replace'?'on':'')+'" '
+   +'onclick="tmp.si.mode=\'replace\';render()">覆蓋更新</button></div>'
+   +'<div class="hint">🔵 計畫書改版時選「覆蓋更新」。舊標準會停用而非刪除，'
+   +'已填好的抽查紀錄仍保留當時引用的標準文字。</div>'
+   +'<div class="card" style="margin-top:18px"><div class="card-pad">'
+   +'<div class="tt" style="font-size:14px">即將導入</div>'
+   +'<div class="st" style="margin-top:6px;line-height:1.9">'
+   +'· 分項工程　<b>'+gs.length+'</b> 個<br>'
+   +'· 管理標準　<b>'+picked+'</b> 條<br>'
+   +'· 來源檔案　'+esc(d.source_file||'')+'<br>'
+   +'· 原始檔已備份至 Drive 的「90_監造計畫書」</div></div></div>'
+   +'<div class="card" style="background:var(--blue-bg);border:1px solid #bae6fd">'
+   +'<div class="card-pad st" style="color:var(--blue);line-height:1.8">'
+   +'導入後，<b>施工抽查</b>的分項工程選單會多出這些項目，'
+   +'<b>材料抽查</b>也能從標準庫帶入查驗標準與抽查方式。</div></div>'
+   +'<button class="btn green" onclick="doSpecImport()">✓ 確認導入</button>'
+   +'<button class="btn ghost" onclick="tmp.si.step=2;render()">‹ 回上一步</button>';
+}
+function doSpecImport(){
+  var d=tmp.si.parsed||{}, items=[];
+  (d.groups||[]).forEach(function(g){
+    g.items.forEach(function(x,i){
+      if(!tmp.si.sel[g.work_item+'|'+i]) return;
+      items.push({work_item:g.work_item, check_item:x.check_item,
+        check_standard:x.check_standard, check_method:x.check_method,
+        frequency:x.frequency, hold_point:x.hold_point});
+    });
+  });
+  if(!items.length){ toast('沒有勾選任何項目'); return; }
+  busy(true,'寫入標準庫…');
+  api('spec.import',{
+    project_id:S.project.project_id, source_file:d.source_file,
+    mode:tmp.si.mode||'append', items:items
+  }).then(function(r){
+    busy(false); tmp.si=null; S.standards=null;
+    toast('✓ 已導入 '+r.added+' 條'+(r.skipped?'（'+r.skipped+' 條已存在略過）':''), 3500);
+    reset('specList');
+  }).catch(function(e){ busy(false); toast('導入失敗：'+e.message,4500); });
+}
+
+/* 材料抽查用的標準挑選器 */
+SCREENS.specPick=function(p,c){
+  var h=bar('從標準庫選取','點選一條套用')+'<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+  var ws=c.data.work_items||[];
+  if(!ws.length) return h+'<div class="empty"><div class="ic">📘</div>'
+    +'<div class="tt" style="margin-top:9px">尚未導入監造計畫書</div></div></div>';
+  return h+ws.map(function(w){
+    return '<button class="card" style="width:100%;border:0;padding:0;text-align:left" '
+     +'onclick="go(\'specPickList\',{w:\''+encodeURIComponent(w.work_item)+'\'})">'
+     +'<div class="card-pad row"><div class="grow"><div class="tt">'+esc(w.work_item)+'</div>'
+     +'<div class="st" style="margin-top:3px">'+w.count+' 條</div></div>'
+     +'<span class="chev">›</span></div></button>';
+  }).join('')+'</div>';
+};
+SCREENS.specPick_load=function(p,c){
+  loadTo(c,'spec',function(){ return api('spec.list',{project_id:S.project.project_id}); });
+};
+SCREENS.specPickList=function(p,c){
+  var h=bar(decodeURIComponent(p.w),'點選一條套用')+'<div class="body">';
+  if(!c.data) return h+skeleton(3)+'</div>';
+  return h+'<div class="card">'+(c.data.items||[]).map(function(x,i){
+    return '<button class="li" onclick="applyStd('+i+')">'
+     +'<div class="grow"><div class="tt" style="font-size:13.5px">'+esc(x.check_item)+'</div>'
+     +'<div class="xs" style="margin-top:3px;line-height:1.6">'+esc(x.check_standard)+'<br>'
+     +'<span style="color:var(--ink-2)">'+esc(x.check_method)+'　·　'+esc(x.frequency)+'</span></div></div>'
+     + (x.hold_point?'<span class="tag t-red">🛑</span>':'')+'<span class="chev">›</span></button>';
+  }).join('')+'</div></div>';
+};
+SCREENS.specPickList_load=function(p,c){
+  loadTo(c,null,function(){
+    return api('spec.list',{project_id:S.project.project_id, work_item:decodeURIComponent(p.w)});
+  });
+};
+function applyStd(i){
+  var x=(cur().data.items||[])[i];
+  if(!x) return;
+  tmp.nm=tmp.nm||{photos:[]};
+  tmp.nm.std=x.check_standard;
+  tmp.nm.stdMethod=x.check_method;
+  tmp.nm.stdFreq=x.frequency;
+  tmp.nm.stdFrom=x.work_item+' — '+x.check_item;
+  toast('✓ 已帶入「'+x.check_item+'」');
+  stack.pop(); stack.pop();   // 回到材料抽查表單
+  render();
+}
+
+/* ---------------------- 報表範本 ---------------------- */
+SCREENS.tplList=function(p,c){
+  var h=bar('報表範本管理','事務所共用')+'<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+  var list=c.data.items||[];
+  if(!list.length){
+    h+='<div class="empty"><div class="ic">📄</div>'
+      +'<div class="tt" style="margin-top:9px">尚無報表範本</div>'
+      +'<div class="st" style="margin-top:5px;line-height:1.7">把事務所現有的 Word 表格加上'
+      +' {{標記}} 上傳<br>匯出時就會自動套用你們的版面</div></div>';
+  }else{
+    h+=list.map(function(t){
+      return '<div class="card"><div class="card-pad">'
+       +'<div class="row" style="gap:6px;flex-wrap:wrap">'
+       +'<span class="tag t-blue">'+esc(t.type)+'</span>'
+       + (String(t.is_default).toUpperCase()==='TRUE'?'<span class="tag t-green">★ 預設</span>':'')
+       + (t.unmapped_count?'<span class="tag t-amber">'+t.unmapped_count+' 個標記未對應</span>':'')+'</div>'
+       +'<div class="tt" style="margin:9px 0 3px">'+esc(t.name)+'</div>'
+       +'<div class="st">📎 '+esc(t.file_name)+'</div>'
+       +'<div class="xs" style="margin-top:8px">'+(t.token_count||0)+' 個標記　·　'
+       + esc(t.created_at||'')+'</div>'
+       +'<div class="row" style="margin-top:11px;gap:8px">'
+       +'<button class="btn ghost sm" style="flex:1" onclick="setDefaultTpl(\''+t.template_id+'\')">'
+       +'★ 設為預設</button>'
+       +'<button class="btn ghost sm" style="flex:1" onclick="delTpl(\''+t.template_id+'\')">刪除</button>'
+       +'</div></div></div>';
+    }).join('');
+  }
+  return h+'<button class="btn" style="margin-top:6px" onclick="tplUpload()" '
+   + (Net.ok?'':'disabled')+'>⬆️ 上傳新範本</button>'
+   +'<div class="card" style="margin-top:16px"><div class="card-pad st" style="line-height:1.9">'
+   +'<b>怎麼做範本</b><br>把 Word 表格另存一份，在要填資料的儲存格打上：<br>'
+   +'<code style="background:#f1f5f9;padding:2px 6px;border-radius:5px;font-size:12.5px">{{工程名稱}}</code> '
+   +'<code style="background:#f1f5f9;padding:2px 6px;border-radius:5px;font-size:12.5px">{{查驗位置}}</code> '
+   +'<code style="background:#f1f5f9;padding:2px 6px;border-radius:5px;font-size:12.5px">{{照片}}</code><br><br>'
+   +'照片這種會重複的區塊，在那張表格內任一格加上 '
+   +'<code style="background:#f1f5f9;padding:2px 6px;border-radius:5px;font-size:12.5px">{{#照片}}</code>，'
+   +'系統會依照片數量整張複製並自動分頁。</div></div></div>';
+};
+SCREENS.tplList_load=function(p,c){
+  loadTo(c,null,function(){ return api('template.list',{}); });
+};
+function tplUpload(){
+  var type=prompt('報表類型（查驗照片表 / 缺失改善表 / 材料抽查表 / 施工抽查表）','查驗照片表');
+  if(!type) return;
+  Img.pickDoc().then(function(f){
+    if(!f) return;
+    busy(true,'上傳並掃描標記…');
+    api('template.upload',{type:type.trim(), name:f.filename.replace(/\.[^.]+$/,''), file:f})
+      .then(function(d){
+        busy(false);
+        var un=(d.unmapped||[]).length;
+        toast(un? '✓ 已上傳，'+un+' 個標記需指定對應' : '✓ 已上傳，'+d.tokens.length+' 個標記全部對應成功', 4000);
+        reload();
+      }).catch(function(e){ busy(false); toast('上傳失敗：'+e.message,4500); });
+  });
+}
+function setDefaultTpl(id){
+  api('template.setDefault',{template_id:id}).then(function(){ toast('✓ 已設為預設'); reload(); })
+    .catch(function(e){ toast(e.message); });
+}
+function delTpl(id){
+  if(!confirm('確定刪除此範本？')) return;
+  api('template.delete',{template_id:id}).then(function(){ toast('已刪除'); reload(); })
+    .catch(function(e){ toast(e.message); });
+}
+
+/* ---------------------- Notion ---------------------- */
+SCREENS.notion=function(p,c){
+  var h=bar('Notion 專案管理連動')+'<div class="body">';
+  if(c.err) return h+errBox(c.err)+'</div>';
+  if(!c.data) return h+skeleton(3)+'</div>';
+  var d=c.data;
+  h+= d.linked
+    ? '<div class="card" style="background:var(--green-bg);border:1px solid #bbf7d0">'
+      +'<div class="card-pad row"><span style="font-size:26px">🔗</span>'
+      +'<div class="grow"><div class="tt" style="font-size:14px">已連線</div>'
+      +'<div class="st">'+esc(d.workspace||'')+'</div>'
+      +'<div class="xs" style="margin-top:2px">'+esc(d.trigger||'')+'</div></div>'
+      +'<span class="tag t-green">正常</span></div></div>'
+    : '<div class="card" style="border-left:4px solid var(--red)"><div class="card-pad">'
+      +'<div class="tt" style="font-size:14px">尚未連線</div>'
+      +'<div class="st" style="margin-top:4px">'+esc(d.workspace||'請在 GAS 指令碼屬性設定 NOTION_TOKEN 與 NOTION_PARENT_PAGE_ID')+'</div>'
+      +'</div></div>';
+
+  h+='<div class="sect">推送的資料庫 <span class="tag t-blue">單向</span></div><div class="card">'
+   + (d.databases||[]).map(function(x,i){
+      return '<div style="padding:12px 14px;border-bottom:1px solid var(--line)">'
+       +'<div class="row" style="align-items:flex-start"><div class="grow">'
+       +'<div class="tt" style="font-size:13.5px">'+esc(x.title)+'</div>'
+       +'<div class="xs" style="margin-top:2px">來源：'+esc(x.source)+'　現有 '+x.rows+' 筆'
+       + (x.database_id?'':'　·　<span style="color:var(--amber)">尚未建立</span>')+'</div>'
+       +'<div class="xs" style="margin-top:3px;color:var(--ink-2)">屬性：'+esc(x.props)+'</div>'
+       + (x.last_sync_at?'<div class="xs" style="margin-top:3px">上次：'+esc(x.last_sync_at)
+          +'　'+esc(x.last_status)+'　'+x.last_count+' 筆</div>':'')
+       +'</div><input type="checkbox" '+(x.enabled?'checked':'')
+       +' onchange="toggleNotion(\''+x.key+'\',this.checked)"></div></div>';
+     }).join('')+'</div>'
+   +'<div class="card" style="background:var(--blue-bg);border:1px solid #bae6fd">'
+   +'<div class="card-pad st" style="color:var(--blue);line-height:1.85">'
+   +'<b>單向推送的取捨</b><br>Google Sheet 永遠是唯一的真實資料來源，Notion 只是給主管看的看板，'
+   +'不必處理雙向衝突。<br><br>'
+   +'<b>不影響現場速度</b><br>現場按下儲存只寫 Sheet 就立刻回應，Notion 由伺服器背景補推，'
+   +'現場一秒都不用多等。</div></div>'
+   +'<button class="btn" onclick="notionSetup()" '+(Net.ok?'':'disabled')+'>'
+   +'🏗️ 建立 / 檢查 Notion 資料庫</button>'
+   +'<button class="btn ghost" onclick="notionSync()" '+(Net.ok?'':'disabled')+'>'
+   +'📤 立即推送全部資料</button>';
+  return h+'</div>';
+};
+SCREENS.notion_load=function(p,c){
+  loadTo(c,null,function(){ return api('notion.status',{}); });
+};
+function toggleNotion(key,on){
+  api('notion.toggle',{key:key, enabled:on})
+    .then(function(){ toast(on?'已開啟推送':'已停止推送'); })
+    .catch(function(e){ toast(e.message); reload(); });
+}
+function notionSetup(){
+  busy(true,'建立 Notion 資料庫…');
+  api('notion.setup',{}).then(function(d){
+    busy(false);
+    var made=(d.databases||[]).filter(function(x){ return x.created; }).length;
+    toast(made? '✓ 已建立 '+made+' 個資料庫' : '✓ 資料庫皆已存在');
+    reload();
+  }).catch(function(e){ busy(false); toast('建立失敗：'+e.message,5000); });
+}
+function notionSync(){
+  busy(true,'推送中…');
+  api('notion.syncNow',{}).then(function(d){
+    busy(false);
+    toast('✓ 已推送 '+d.total+' 筆');
+    reload();
+  }).catch(function(e){ busy(false); toast('推送失敗：'+e.message,5000); });
+}
+
+/* ============================================================================
+ * 【9】啟動
+ * ==========================================================================*/
+function afterLogin(){
+  // 還原上次選的專案
+  var pid=null;
+  try{ pid=localStorage.getItem('sqm_pid'); }catch(e){}
+  if(!pid){ reset('projects'); return; }
+
+  Cache.get('project').then(function(hit){
+    if(hit && hit.v && hit.v.project_id===pid){
+      S.project=hit.v;
+      var q=new URLSearchParams(location.search).get('go');
+      reset(q && SCREENS[q] ? q : 'home');
+      refreshBadges();
+      Queue.autoSync();
+    }else{
+      reset('projects');
+    }
+  });
+}
+
+function boot(){
+  render();
+  Auth.boot();
+  Queue.count().then(function(n){ S.qcount=n; });
+  setTimeout(function(){
+    if(Auth.valid()) afterLogin();
+    else if(cur().n==='boot') reset('login');
+  }, 900);
+  // token 快到期前提早續期，避免現場填到一半被踢出去
+  setInterval(function(){
+    if(Auth.token && !Auth.valid()) Auth.refresh();
+  }, 60000);
+}
+
+/* ---- Service Worker ---- */
+var swReg=null;
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').then(function(r){
+      swReg=r;
+      r.addEventListener('updatefound', function(){
+        var nw=r.installing;
+        if(!nw) return;
+        nw.addEventListener('statechange', function(){
+          if(nw.state==='installed' && navigator.serviceWorker.controller){
+            $('update').style.display='flex';
+          }
+        });
+      });
+    }).catch(function(e){ console.warn('SW 註冊失敗', e); });
+    var refreshing=false;
+    navigator.serviceWorker.addEventListener('controllerchange', function(){
+      if(refreshing) return; refreshing=true; location.reload();
+    });
+  });
+}
+function applyUpdate(){
+  $('update').style.display='none';
+  if(swReg && swReg.waiting) swReg.waiting.postMessage('SKIP_WAITING');
+  else location.reload();
+}
+
+/* ---- 安卓返回鍵 ---- */
+history.pushState({sqm:1},'');
+window.addEventListener('popstate', function(){
+  history.pushState({sqm:1},'');
+  if(stack.length>1) back();
+});
+
+boot();
+</script>
+</body>
+</html>
